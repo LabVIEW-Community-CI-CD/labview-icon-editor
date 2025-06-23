@@ -360,6 +360,7 @@
 		</Item>
 		<Item Name="Unit tests" Type="Folder">
 			<Property Name="NI.SortType" Type="Int">1</Property>
+			<Item Name="Editor Position.lvclass" Type="LVClass" URL="../Test/Unit Tests/Editor Position/Editor Position.lvclass"/>
 			<Item Name="Missing in Project.lvclass" Type="LVClass" URL="../Test/Unit Tests/Missing in Project/Missing in Project.lvclass"/>
 			<Item Name="Text-Based VI Icon Tests.lvclass" Type="LVClass" URL="../Test/Unit Tests/Text-Based VI Icon Tests/Text-Based VI Icon Tests.lvclass"/>
 			<Item Name="Undo Redo Core.lvclass" Type="LVClass" URL="../Test/Unit Tests/Undo Redo Core/Undo Redo Core.lvclass"/>
