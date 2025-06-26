@@ -565,6 +565,7 @@
 			<Item Name="Discover Who Invoked The Icon Editor.vi" Type="VI" URL="/&lt;resource&gt;/plugins/IconEditor/Discover Who Invoked The Icon Editor.vi"/>
 			<Item Name="Who Invoked Icon Editor.ctl" Type="VI" URL="/&lt;resource&gt;/plugins/IconEditor/Who Invoked Icon Editor.ctl"/>
 			<Item Name="Icon Editor Invoker Type.ctl" Type="VI" URL="/&lt;resource&gt;/plugins/IconEditor/Icon Editor Invoker Type.ctl"/>
+			<Item Name="LV Config Remove.vi" Type="VI" URL="/&lt;resource&gt;/dialog/lvconfig.llb/LV Config Remove.vi"/>
 		</Item>
 		<Item Name="Build Specifications" Type="Build">
 			<Item Name="Editor Packed Library" Type="Packed Library">

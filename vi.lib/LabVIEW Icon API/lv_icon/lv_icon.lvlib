@@ -12,7 +12,8 @@
 		<Item Name="lv_IconEditor.lvlib" Type="Friended Library" URL="/&lt;resource&gt;/plugins/lv_IconEditor.lvlib"/>
 	</Item>
 	<Item Name="Editor Position" Type="Folder">
-		<Item Name="Save Editor Position.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Save Editor Position.vi"/>
+		<Item Name="Read Editor Position from INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Read Editor Position from INI.vi"/>
+		<Item Name="Save Editor Position to INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Save Editor Position to INI.vi"/>
 		<Item Name="Set Editor Position.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Set Editor Position.vi"/>
 	</Item>
 	<Item Name="Other" Type="Folder">
