@@ -18,10 +18,12 @@
 			<Item Name="VIP_Post-Uninstall Custom Action.vi" Type="VI" URL="../deployment/VIP_Post-Uninstall Custom Action.vi"/>
 			<Item Name="VIP_Pre-Install Custom Action.vi" Type="VI" URL="../deployment/VIP_Pre-Install Custom Action.vi"/>
 			<Item Name="VIP_Pre-Uninstall Custom Action.vi" Type="VI" URL="../deployment/VIP_Pre-Uninstall Custom Action.vi"/>
-			<Item Name="BuildVIPackage.vi" Type="VI" URL="../deployment/BuildVIPackage.vi"/>
+			<Item Name="VIP_Post-Install Custom Action.vi" Type="VI" URL="../deployment/VIP_Post-Install Custom Action.vi"/>
 		</Item>
 		<Item Name="ApplyVIPC.vi" Type="VI" URL="../deployment/ApplyVIPC.vi"/>
+		<Item Name="BuildVIPackage.vi" Type="VI" URL="../deployment/BuildVIPackage.vi"/>
 		<Item Name="Modify_VIPB_Display_Information.vi" Type="VI" URL="../deployment/Modify_VIPB_Display_Information.vi"/>
+		<Item Name="VIPM API_vipm_api.lvlib" Type="Library" URL="/&lt;vilib&gt;/JKI/VIPM API/VIPM API_vipm_api.lvlib"/>
 		<Item Name="Dependencies" Type="Dependencies"/>
 		<Item Name="Build Specifications" Type="Build"/>
 	</Item>
