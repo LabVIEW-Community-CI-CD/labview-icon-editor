@@ -16,7 +16,7 @@
 - 🌱 [Feature & Experiment Workflows](#feature--experiment-workflows)  
 - 📚 [Documentation](#documentation)  
 - 📄 [License & CLA](#license--cla)  
-- 💬 [Contact & Discord](#contact--discord)
+- 💬 [Contarct & Discord](#contact--discord)
 
 ---
 
