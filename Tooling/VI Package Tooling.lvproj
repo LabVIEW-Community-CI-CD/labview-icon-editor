@@ -19,7 +19,6 @@
 			<Item Name="VIP_Pre-Install Custom Action.vi" Type="VI" URL="../deployment/VIP_Pre-Install Custom Action.vi"/>
 			<Item Name="VIP_Pre-Uninstall Custom Action.vi" Type="VI" URL="../deployment/VIP_Pre-Uninstall Custom Action.vi"/>
 			<Item Name="VIP_Post-Install Custom Action.vi" Type="VI" URL="../deployment/VIP_Post-Install Custom Action.vi"/>
-			<Item Name="vi_package_setup_coordinator.vi" Type="VI" URL="../deployment/vi_package_setup_coordinator.vi"/>
 		</Item>
 		<Item Name="ApplyVIPC.vi" Type="VI" URL="../deployment/ApplyVIPC.vi"/>
 		<Item Name="BuildVIPackage.vi" Type="VI" URL="../deployment/BuildVIPackage.vi"/>
