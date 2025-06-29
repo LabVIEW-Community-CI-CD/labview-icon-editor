@@ -1,4 +1,4 @@
-name: Immediate VIPB ↔ JSON test (args workaround)
+name: Immediate VIPB ↔ JSON test (with folder tree)
 
 on: [workflow_dispatch]
 
@@ -8,21 +8,26 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Print working directory and tree
+      - name: Print workspace and folder tree
+        run: |
+          echo "Working dir: $PWD"
+          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
+          echo "Tree:"
+          find . -type d | sort
+          echo "Files:"
+          find . -type f | sort
+
       - name: JSON → VIPB
         id: inject
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
           args: json2vipb iconeditor.json iconeditor.vipb
 
-#      - name: VIPB → JSON
-#        uses: svelderrainruiz/json-vipb@v0.1.4
-#        with:
-#          args: vipb2json iconeditor.vipb roundtrip.json
-
-      - name: VIPB → JSON (args form)
+      - name: VIPB → JSON
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: vipb2json "Tooling/deployment/NIIconEditor.vipb" "icon_editor_patched.json"
+          args: vipb2json iconeditor.vipb roundtrip.json
 
       - name: Compare hash
         run: |
