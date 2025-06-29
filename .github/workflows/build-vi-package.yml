@@ -42,7 +42,7 @@ jobs:
       #        iconeditor.json > iconeditor.patched.json
 
       - name: JSON → VIPB
-        uses: svelderrainruiz/json-vipb@v0.1.2        # latest tag
+        uses: svelderrainruiz/json-vipb@v0.1.3        # latest tag
         with:
           mode: json2vipb               # <- A‑2
           in:  iconeditor.json          # (file exists in repo)
