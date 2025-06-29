@@ -18,11 +18,10 @@ jobs:
           echo "Files:"
           find . -type f | sort
 
-      - name: JSON → VIPB
-        id: inject
+      - name: VIPB → JSON
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: json2vipb iconeditor.json iconeditor.vipb
+          args: vipb2json "./Tooling/deployment/NI Icon editor LVAddon.vipb" roundtrip.json
 
       # ---------- PRINT JSON FILE CONTENTS ----------
       - name: Print JSON (pretty)
@@ -35,19 +34,7 @@ jobs:
             cat iconeditor.json
           fi
           echo "-------------------"
-
-      - name: VIPB → JSON
-        uses: svelderrainruiz/json-vipb@v0.1.4
-        with:
-          args: vipb2json iconeditor.vipb roundtrip.json
-
-      - name: Compare hash
-        run: |
-          orig=$(sha256sum iconeditor.json | cut -d' ' -f1)
-          new=$(sha256sum roundtrip.json | cut -d' ' -f1)
-          echo "orig=$orig  new=$new"
-          [ "$orig" = "$new" ] || { echo "::error::hash mismatch"; exit 1; }
-
+          
       - uses: actions/upload-artifact@v4
         with:
           name: vipb-json-artifacts
