@@ -22,7 +22,7 @@ jobs:
       - name: VIPB → JSON (args form)
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: vipb2json "Tooling/deployment/NI Icon editor LVAddon.vipb" "Tooling/deployment/icon_editor.json"
+          args: vipb2json "Tooling/deployment/NIIconEditor.vipb" "icon_editor_patched.json"
 
       - name: Compare hash
         run: |
