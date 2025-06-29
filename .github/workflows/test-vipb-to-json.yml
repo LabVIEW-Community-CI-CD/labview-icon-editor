@@ -1,0 +1,26 @@
+name: VIPB ➜ JSON smoke test
+
+on:
+  workflow_dispatch:      # manual “Run workflow” button
+
+jobs:
+  vipb-to-json:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ---------- 1. Convert VIPB → JSON ----------
+      - name: Extract JSON from VIPB
+        id: vipb2json
+        uses: svelderrainruiz/json-vipb@v0.1.4   # tag that defines inputs
+        with:
+          mode: vipb2json
+          in:  iconeditor.vipb          # adjust path if VIPB lives elsewhere
+          out: iconeditor.extracted.json
+
+      # ---------- 2. Upload the JSON ----------
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vipb-json-output
+          path: iconeditor.extracted.json
