@@ -14,10 +14,15 @@ jobs:
         with:
           args: json2vipb iconeditor.json iconeditor.vipb
 
-      - name: VIPB → JSON
+#      - name: VIPB → JSON
+#        uses: svelderrainruiz/json-vipb@v0.1.4
+#        with:
+#          args: vipb2json iconeditor.vipb roundtrip.json
+
+      - name: VIPB → JSON (args form)
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: vipb2json iconeditor.vipb roundtrip.json
+          args: vipb2json "Tooling/deployment/NI Icon editor LVAddon.vipb" "Tooling/deployment/icon_editor.json"
 
       - name: Compare hash
         run: |
