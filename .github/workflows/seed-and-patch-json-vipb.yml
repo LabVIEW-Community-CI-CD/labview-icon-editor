@@ -1,10 +1,10 @@
-name: Seed and Patch JSON-VIPB, One Commit per Step
+name: Seed and Patch JSON-VIPB, Patch-First Style
 
 on:
   workflow_dispatch:
 
 jobs:
-  seed-and-commit:
+  patch-seed-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -26,59 +26,38 @@ jobs:
           echo "json_file=$JSONFILE"  >> $GITHUB_OUTPUT
           echo "branch_name=$BRANCH"  >> $GITHUB_OUTPUT
 
-      # --- 1. Create feature branch ---
-      - name: Create feature branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          git checkout -b "${{ steps.meta.outputs.branch_name }}"
-
-      # --- 2. Generate fresh VIPB from JSON and commit only VIPB ---
-      - name: JSON → VIPB
-        uses: svelderrainruiz/json-vipb@v0.1.4
-        with:
-          args: json2vipb "${{ steps.meta.outputs.json_file }}" "${{ steps.meta.outputs.vipb_file }}"
-
-      - name: Commit VIPB only
-        run: |
-          git add "${{ steps.meta.outputs.vipb_file }}"
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Seed VIPB from JSON: ${{ steps.meta.outputs.vipb_file }}"
-          git push --set-upstream origin "${{ steps.meta.outputs.branch_name }}"
-
-      # --- 3. Extract JSON from VIPB and commit only JSON ---
-      - name: Extract JSON from VIPB
-        uses: svelderrainruiz/json-vipb@v0.1.4
-        with:
-          args: vipb2json "${{ steps.meta.outputs.vipb_file }}" "${{ steps.meta.outputs.json_file }}"
-
-      - name: Commit extracted JSON only
-        run: |
-          git add "${{ steps.meta.outputs.json_file }}"
-          git commit -m "Extract JSON from VIPB: ${{ steps.meta.outputs.json_file }}"
-          git push
-
-      # --- 4. Patch Company Name, commit only JSON ---
-      - name: Patch Company Name to repo owner
+      # --- 1. Patch JSON with current repo owner as Company Name ---
+      - name: Patch Company Name in JSON (pre-branch)
         run: |
           jq '.Library_General_Settings.Company_Name.__text = "${{ github.repository_owner }}"' \
             "${{ steps.meta.outputs.json_file }}" > tmp.json
           mv tmp.json "${{ steps.meta.outputs.json_file }}"
           jq '.Library_General_Settings.Company_Name.__text' "${{ steps.meta.outputs.json_file }}" || true
 
-      - name: Commit JSON with patched Company Name only
-        run: |
-          git add "${{ steps.meta.outputs.json_file }}"
-          git commit -m "Set Company Name to '${{ github.repository_owner }}' in ${{ steps.meta.outputs.json_file }}"
-          git push
+      # --- 2. Generate fresh VIPB from patched JSON ---
+      - name: JSON → VIPB (fresh)
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: json2vipb "${{ steps.meta.outputs.json_file }}" "${{ steps.meta.outputs.vipb_file }}"
 
-      # --- 5. (Optional) Print and upload final results ---
+      # --- 3. Create feature branch and commit both files together ---
+      - name: Create and push branch with JSON and VIPB
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git checkout -b "${{ steps.meta.outputs.branch_name }}"
+          git add "${{ steps.meta.outputs.json_file }}" "${{ steps.meta.outputs.vipb_file }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Seed and patch: Set Company Name to '${{ github.repository_owner }}' and generate fresh VIPB"
+          git push --set-upstream origin "${{ steps.meta.outputs.branch_name }}"
+
+      # --- 4. Optional: Print and upload result for inspection ---
       - name: Print JSON (pretty)
         run: jq . "${{ steps.meta.outputs.json_file }}" || cat "${{ steps.meta.outputs.json_file }}"
       - uses: actions/upload-artifact@v4
         with:
-          name: final-json-and-vipb
+          name: seeded-json-and-vipb
           path: |
             ${{ steps.meta.outputs.vipb_file }}
             ${{ steps.meta.outputs.json_file }}
