@@ -1,4 +1,4 @@
-name: Generate VIPB From JSON Parent
+name: Initialize VIPB from JSON
 
 on:
   workflow_dispatch:
@@ -6,40 +6,45 @@ on:
       json_file:
         description: 'Input JSON file (relative to repo root)'
         required: true
-        default: './iconeditor.json'
-      json_field:
-        description: 'Field to modify (jq syntax, e.g. .Library_General_Settings.Company_Name.__text)'
+        default: './Tooling/deployment/NI Icon editor LVAddon.json'
+      company_name:
+        description: 'Company Name (will overwrite .Library_General_Settings.Company_Name.__text)'
         required: true
-        default: '.Library_General_Settings.Company_Name.__text'
-      new_value:
-        description: 'New value for the field (will be treated as a string)'
+        default: 'svelderrainruiz'
+      author:
+        description: 'Author (will overwrite .@Author)'
         required: true
-        default: 'NI'
+        default: 'Sergio Velderrain'
       vipb_file:
         description: 'Output VIPB file (relative to repo root)'
         required: true
         default: './Tooling/deployment/NI Icon editor.vipb'
 
 jobs:
-  modify-and-convert:
+  initialize-and-generate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Show current value
+      - name: Show current values
         run: |
-          echo "Original value for ${{ github.event.inputs.json_field }}:"
-          jq "${{ github.event.inputs.json_field }}" "${{ github.event.inputs.json_file }}" || true
+          echo "Company Name:"
+          jq '.Library_General_Settings.Company_Name.__text' "${{ github.event.inputs.json_file }}" || true
+          echo "Author:"
+          jq '.["@Author"]' "${{ github.event.inputs.json_file }}" || true
 
-      - name: Patch JSON
+      - name: Patch JSON (Company Name and Author)
         run: |
-          jq '${{ github.event.inputs.json_field }} = "${{ github.event.inputs.new_value }}"' \
-            "${{ github.event.inputs.json_file }}" > modified.json
+          jq '.Library_General_Settings.Company_Name.__text = "${{ github.event.inputs.company_name }}" |
+              .["@Author"] = "${{ github.event.inputs.author }}"' \
+              "${{ github.event.inputs.json_file }}" > modified.json
 
-      - name: Show new value
+      - name: Show new values
         run: |
-          echo "New value for ${{ github.event.inputs.json_field }}:"
-          jq "${{ github.event.inputs.json_field }}" modified.json || true
+          echo "New Company Name:"
+          jq '.Library_General_Settings.Company_Name.__text' modified.json || true
+          echo "New Author:"
+          jq '.["@Author"]' modified.json || true
 
       - name: JSON → VIPB
         uses: svelderrainruiz/json-vipb@v0.1.4
@@ -48,7 +53,7 @@ jobs:
 
       - uses: actions/upload-artifact@v4
         with:
-          name: modified-vipb
+          name: initialized-vipb
           path: |
             modified.json
             ${{ github.event.inputs.vipb_file }}
