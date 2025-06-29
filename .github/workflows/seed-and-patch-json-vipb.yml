@@ -1,17 +1,17 @@
-name: End-to-End VIPB/JSON Seed and Patch
+name: Seed and Patch JSON-VIPB, One Commit per Step
 
 on:
   workflow_dispatch:
 
 jobs:
-  seed-vipb-json:
+  seed-and-commit:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # Compute file names and branch name using org/repo
+      # --- Compute canonical names and branch ---
       - name: Compute meta info
         id: meta
         run: |
@@ -26,65 +26,54 @@ jobs:
           echo "json_file=$JSONFILE"  >> $GITHUB_OUTPUT
           echo "branch_name=$BRANCH"  >> $GITHUB_OUTPUT
 
-      # Step 1: Always create a fresh VIPB from the JSON
-      - name: JSON → VIPB (fresh or stub)
-        run: |
-         if [ ! -f "${{ steps.meta.outputs.json_file }}" ]; then
-           echo "Warning: Source JSON not found, creating a stub JSON at ${{ steps.meta.outputs.json_file }}"
-           cat > "${{ steps.meta.outputs.json_file }}" <<'EOL'
-         {
-           "@Version": "2020.1",
-           "Library_General_Settings": {
-             "Company_Name": { "__text": "CompanyName" }
-           }
-         }
-         EOL
-             fi
-            
-      # Step 2: Create feature branch, push VIPB
-      - name: Create and push branch with VIPB
+      # --- 1. Create feature branch ---
+      - name: Create feature branch
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git checkout -b "${{ steps.meta.outputs.branch_name }}"
+
+      # --- 2. Generate fresh VIPB from JSON and commit only VIPB ---
+      - name: JSON → VIPB
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: json2vipb "${{ steps.meta.outputs.json_file }}" "${{ steps.meta.outputs.vipb_file }}"
+
+      - name: Commit VIPB only
+        run: |
           git add "${{ steps.meta.outputs.vipb_file }}"
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git commit -m "Seed: VIPB generated from JSON"
+          git commit -m "Seed VIPB from JSON: ${{ steps.meta.outputs.vipb_file }}"
           git push --set-upstream origin "${{ steps.meta.outputs.branch_name }}"
 
-      # Step 3: Extract JSON from the new VIPB (on branch)
-      - name: Extract JSON from pushed VIPB
+      # --- 3. Extract JSON from VIPB and commit only JSON ---
+      - name: Extract JSON from VIPB
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
           args: vipb2json "${{ steps.meta.outputs.vipb_file }}" "${{ steps.meta.outputs.json_file }}"
 
-      # Step 4: Commit and push JSON to the branch
-      - name: Commit and push extracted JSON
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit extracted JSON only
         run: |
           git add "${{ steps.meta.outputs.json_file }}"
-          git commit -m "Extracted JSON from VIPB after initial push"
+          git commit -m "Extract JSON from VIPB: ${{ steps.meta.outputs.json_file }}"
           git push
 
-      # Step 5: Read the just-pushed JSON, patch Company Name to fork org name
-      - name: Patch Company Name to repo owner (org)
+      # --- 4. Patch Company Name, commit only JSON ---
+      - name: Patch Company Name to repo owner
         run: |
           jq '.Library_General_Settings.Company_Name.__text = "${{ github.repository_owner }}"' \
             "${{ steps.meta.outputs.json_file }}" > tmp.json
           mv tmp.json "${{ steps.meta.outputs.json_file }}"
           jq '.Library_General_Settings.Company_Name.__text' "${{ steps.meta.outputs.json_file }}" || true
 
-      - name: Commit Company Name update to feature branch
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Commit JSON with patched Company Name only
         run: |
           git add "${{ steps.meta.outputs.json_file }}"
-          git commit -m "Set Company Name to '${{ github.repository_owner }}' [seed automation]"
+          git commit -m "Set Company Name to '${{ github.repository_owner }}' in ${{ steps.meta.outputs.json_file }}"
           git push
 
-      # Optional: Print and upload result
+      # --- 5. (Optional) Print and upload final results ---
       - name: Print JSON (pretty)
         run: jq . "${{ steps.meta.outputs.json_file }}" || cat "${{ steps.meta.outputs.json_file }}"
       - uses: actions/upload-artifact@v4
