@@ -29,13 +29,6 @@ jobs:
           echo "VIPB input path: ${{ github.event.inputs.vipb_path }}"
           ls -l "${{ github.event.inputs.vipb_path }}"
 
-      # JSON → VIPB (this step not needed if you only want VIPB→JSON, but included for symmetry)
-      # - name: JSON → VIPB
-      #   id: inject
-      #   uses: svelderrainruiz/json-vipb@v0.1.4
-      #   with:
-      #     args: json2vipb iconeditor.json iconeditor.vipb
-
       - name: VIPB → JSON
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
