@@ -6,7 +6,7 @@ on:
       json_file:
         description: 'Input JSON file (relative to repo root)'
         required: true
-        default: './Tooling/deployment/NI Icon editor LVAddon.json'
+        default: './svelderrainruiz-labview-icon-editor.json'
       company_name:
         description: 'Company Name (will overwrite .Library_General_Settings.Company_Name.__text)'
         required: true
@@ -14,11 +14,11 @@ on:
       author:
         description: 'Author (will overwrite .@Author)'
         required: true
-        default: 'Sergio Velderrain'
+        default: 'svelderrainruiz'
       vipb_file:
         description: 'Output VIPB file (relative to repo root)'
         required: true
-        default: './Tooling/deployment/NI Icon editor.vipb'
+        default: './svelderrainruiz-labview-icon-editor.vipb'
 
 jobs:
   initialize-and-generate:
