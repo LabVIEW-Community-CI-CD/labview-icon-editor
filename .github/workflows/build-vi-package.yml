@@ -198,6 +198,24 @@ jobs:
           "MAJOR=$newMajor"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "MINOR=$newMinor"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "PATCH=$newPatch"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+          
+      - name: Extract VIPB JSON
+        id: extract_vipb_json
+        uses: svelderrainruiz/json-vipb@v0.1.0   # pin a tag
+        with:
+          mode: vipb2json
+          in:  Tooling/deployment/NIIconEditor.vipb           
+          out: Tooling/deployment/iconeditor.json
+
+# …insert your json‑modification step here…
+
+      - name: Inject VIPB JSON
+        id: inject_vipb_json
+        uses: svelderrainruiz/json-vipb@v0.1.0
+        with:
+          mode: json2vipb                       # <- correct mode
+          in:  Tooling/deployment/iconeditor.json           # patched json
+          out: Tooling/deployment/NI Icon Editor.vipb           # overwrite or new path
 
       ########################################################################
       # 5) Build the icon editor VI package
