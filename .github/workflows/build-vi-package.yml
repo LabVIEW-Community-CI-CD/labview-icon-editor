@@ -26,43 +26,58 @@ env:
   DISABLE_GPG_ON_FORKS: false
   ATTACH_ARTIFACTS_TO_RELEASE: true
 
+###############################################################################
+# 1) JSON ➜ VIPB on Linux (Docker action)
+###############################################################################
 jobs:
   json-to-vipb:
     runs-on: ubuntu-latest
 
     outputs:
-      vipb-path: ${{ steps.inject.outputs.vipb }}
+      vipb-path: ${{ steps.inject.outputs.out }}   # pass to next job
 
     steps:
       - uses: actions/checkout@v4
 
-      # optional: mutate JSON (version stamp, etc.)
-      # - name: Patch JSON
-      #   run: jq '.Library_General_Settings.Library_Version |= "1.2.${{ github.run_number }}"' \
-      #        iconeditor.json > iconeditor.patched.json
+      # If you need to edit the JSON, do it here before the inject step.
+      # - run: jq '... edits ...' iconeditor.json > iconeditor.json
 
       - name: JSON → VIPB
-        uses: svelderrainruiz/json-vipb@v0.1.3        # latest tag
+        id: inject
+        uses: svelderrainruiz/json-vipb@v0.1.4   # <-- tag that contains action.yml with inputs
         with:
-          mode: json2vipb               # <- A‑2
-          in:  iconeditor.json          # (file exists in repo)
-          out: iconeditor.vipb          # will be created/overwritten
+          mode: json2vipb
+          in:  iconeditor.json        # lives at repo root
+          out: iconeditor.vipb        # created/overwritten
 
-      - name: Upload patched VIPB
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: patched-vipb
-          path: niiconeditor.vipb
+          path: iconeditor.vipb
 
+###############################################################################
+# 2) Build .vip package on self‑hosted Windows runner
+###############################################################################
   build-release:
     needs: json-to-vipb
-    runs-on: [self-hosted-windows-lv]
+    runs-on: [self-hosted-windows-lv]     # your VIPM runner
     permissions:
       contents: write
       issues: read
       pull-requests: read
 
     steps:
+      # full checkout for versioning logic
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      # download VIPB produced by Linux job
+      - uses: actions/download-artifact@v4
+        with:
+          name: patched-vipb
+          path: .
       ########################################################################
       # A) Possibly disable GPG signing on forks
       ########################################################################
