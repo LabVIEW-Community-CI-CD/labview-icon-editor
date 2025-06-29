@@ -1,6 +1,12 @@
-name: Immediate VIPB ↔ JSON test (with folder tree and JSON print)
+name: Immediate VIPB ↔ JSON test (with file input)
 
-on: [workflow_dispatch]
+on:
+  workflow_dispatch:
+    inputs:
+      vipb_path:
+        description: 'Path to the .vipb file to convert (relative to repo root)'
+        required: true
+        default: './Tooling/deployment/NI Icon editor LVAddon.vipb'
 
 jobs:
   roundtrip:
@@ -8,7 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Print working directory and tree
       - name: Print workspace and folder tree
         run: |
           echo "Working dir: $PWD"
@@ -18,27 +23,38 @@ jobs:
           echo "Files:"
           find . -type f | sort
 
+      # Print the file path actually being used
+      - name: Echo VIPB input path
+        run: |
+          echo "VIPB input path: ${{ github.event.inputs.vipb_path }}"
+          ls -l "${{ github.event.inputs.vipb_path }}"
+
+      # JSON → VIPB (this step not needed if you only want VIPB→JSON, but included for symmetry)
+      # - name: JSON → VIPB
+      #   id: inject
+      #   uses: svelderrainruiz/json-vipb@v0.1.4
+      #   with:
+      #     args: json2vipb iconeditor.json iconeditor.vipb
+
       - name: VIPB → JSON
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: vipb2json "./Tooling/deployment/NI Icon editor LVAddon.vipb" roundtrip.json
+          args: vipb2json "${{ github.event.inputs.vipb_path }}" roundtrip.json
 
-      # ---------- PRINT JSON FILE CONTENTS ----------
-      - name: Print JSON (pretty)
+      - name: Print extracted JSON (pretty)
         run: |
           echo "-------------------"
-          echo "iconeditor.json contents:"
+          echo "Extracted roundtrip.json contents:"
           if command -v jq > /dev/null; then
-            jq . iconeditor.json
+            jq . roundtrip.json
           else
-            cat iconeditor.json
+            cat roundtrip.json
           fi
           echo "-------------------"
-          
+
       - uses: actions/upload-artifact@v4
         with:
           name: vipb-json-artifacts
           path: |
-            iconeditor.json
-            iconeditor.vipb
+            ${{ github.event.inputs.vipb_path }}
             roundtrip.json
