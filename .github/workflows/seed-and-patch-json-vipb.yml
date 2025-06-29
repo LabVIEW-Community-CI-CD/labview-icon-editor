@@ -1,0 +1,95 @@
+name: Seed JSON and Patch Company Name
+
+on:
+  workflow_dispatch:
+    inputs:
+      vipb_file:
+        description: 'Input VIPB file (relative to repo root, e.g. Tooling/deployment/NI Icon editor LVAddon.vipb)'
+        required: true
+        default: 'svelderrainruiz-labview-icon-editor.vipb'
+      new_company_name:
+        description: 'New value for Company_Name field'
+        required: true
+        default: 'AUTO-EDITED COMPANY'
+
+jobs:
+  seed-and-patch:
+    runs-on: ubuntu-latest
+    outputs:
+      branch_name: ${{ steps.meta.outputs.branch_name }}
+      json_file:   ${{ steps.meta.outputs.json_file }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute JSON filename and branch
+        id: meta
+        run: |
+          ORG="${{ github.repository_owner }}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          JSONFILE="$ORG-$REPO.json"
+          NOW=$(date +'%Y%m%d-%H%M%S')
+          SHORTSHA=$(git rev-parse --short HEAD)
+          BRANCH="seed/json-vipb/$ORG-$REPO/$NOW-$SHORTSHA"
+          echo "json_file=$JSONFILE"      >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH"      >> $GITHUB_OUTPUT
+
+      - name: Show intended files/branch
+        run: |
+          echo "VIPB file:   ${{ github.event.inputs.vipb_file }}"
+          echo "JSON file:   ${{ steps.meta.outputs.json_file }}"
+          echo "Branch:      ${{ steps.meta.outputs.branch_name }}"
+
+      - name: VIPB → JSON (repo root)
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json "${{ github.event.inputs.vipb_file }}" "${{ steps.meta.outputs.json_file }}"
+
+      - name: Create and push seed branch with JSON
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git checkout -b "${{ steps.meta.outputs.branch_name }}"
+          git add "${{ steps.meta.outputs.json_file }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Seed JSON for svelderrainruiz/json-vipb: ${{ steps.meta.outputs.json_file }} [ci skip]"
+          git push --set-upstream origin "${{ steps.meta.outputs.branch_name }}"
+
+          echo "Created and pushed branch: ${{ steps.meta.outputs.branch_name }}"
+          echo "Seed file: ${{ steps.meta.outputs.json_file }} (at repo root)"
+
+  patch-company-name:
+    needs: seed-and-patch
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.seed-and-patch.outputs.branch_name }}
+          fetch-depth: 0
+
+      - name: Show original Company Name
+        run: |
+          jq '.Library_General_Settings.Company_Name.__text' "${{ needs.seed-and-patch.outputs.json_file }}" || true
+
+      - name: Patch Company Name field
+        run: |
+          jq '.Library_General_Settings.Company_Name.__text = "${{ github.event.inputs.new_company_name }}"' \
+            "${{ needs.seed-and-patch.outputs.json_file }}" > tmp.json
+          mv tmp.json "${{ needs.seed-and-patch.outputs.json_file }}"
+
+      - name: Show new Company Name
+        run: |
+          jq '.Library_General_Settings.Company_Name.__text' "${{ needs.seed-and-patch.outputs.json_file }}" || true
+
+      - name: Commit and push JSON patch
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ needs.seed-and-patch.outputs.json_file }}"
+          git commit -m "Set Company Name to '${{ github.event.inputs.new_company_name }}' in ${{ needs.seed-and-patch.outputs.json_file }}"
+          git push
