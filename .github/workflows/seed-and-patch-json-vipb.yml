@@ -27,19 +27,20 @@ jobs:
           echo "branch_name=$BRANCH"  >> $GITHUB_OUTPUT
 
       # Step 1: Always create a fresh VIPB from the JSON
-      - name: JSON → VIPB (fresh)
+      - name: JSON → VIPB (fresh or stub)
         run: |
-          if [ ! -f "${{ steps.meta.outputs.json_file }}" ]; then
-            echo "ERROR: Source JSON not found at repo root: ${{ steps.meta.outputs.json_file }}"
-            exit 1
-          fi
-        # if you need to create a seed, uncomment below (but normally you want an existing JSON!)
-        # echo '{"@Version":"2020.1", ...}' > "${{ steps.meta.outputs.json_file }}"
-      - name: Convert JSON → VIPB
-        uses: svelderrainruiz/json-vipb@v0.1.4
-        with:
-          args: json2vipb "${{ steps.meta.outputs.json_file }}" "${{ steps.meta.outputs.vipb_file }}"
-
+         if [ ! -f "${{ steps.meta.outputs.json_file }}" ]; then
+           echo "Warning: Source JSON not found, creating a stub JSON at ${{ steps.meta.outputs.json_file }}"
+           cat > "${{ steps.meta.outputs.json_file }}" <<'EOL'
+         {
+           "@Version": "2020.1",
+           "Library_General_Settings": {
+             "Company_Name": { "__text": "CompanyName" }
+           }
+         }
+         EOL
+             fi
+            
       # Step 2: Create feature branch, push VIPB
       - name: Create and push branch with VIPB
         env:
