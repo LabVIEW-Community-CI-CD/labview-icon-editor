@@ -1,0 +1,54 @@
+name: VIPB JSON Fields
+
+on:
+  workflow_dispatch:
+    inputs:
+      json_file:
+        description: 'Input JSON file (relative to repo root)'
+        required: true
+        default: './Tooling/deployment/NI Icon editor LVAddon.json'
+      json_field:
+        description: 'Field to modify (jq syntax, e.g. .Library_General_Settings.Library_Version)'
+        required: true
+        default: '.Library_General_Settings.Library_Version'
+      new_value:
+        description: 'New value for the field (will be treated as a string)'
+        required: true
+        default: 'AUTO-EDITED'
+      vipb_file:
+        description: 'Output VIPB file (relative to repo root)'
+        required: true
+        default: './Tooling/deployment/NI Icon editor LVAddon.MODIFIED.vipb'
+
+jobs:
+  modify-and-convert:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show current value
+        run: |
+          echo "Original value for ${{ github.event.inputs.json_field }}:"
+          jq "${{ github.event.inputs.json_field }}" "${{ github.event.inputs.json_file }}" || true
+
+      - name: Patch JSON
+        run: |
+          jq '${{ github.event.inputs.json_field }} = "${{ github.event.inputs.new_value }}"' \
+            "${{ github.event.inputs.json_file }}" > modified.json
+
+      - name: Show new value
+        run: |
+          echo "New value for ${{ github.event.inputs.json_field }}:"
+          jq "${{ github.event.inputs.json_field }}" modified.json || true
+
+      - name: JSON → VIPB
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: json2vipb modified.json "${{ github.event.inputs.vipb_file }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: modified-vipb
+          path: |
+            modified.json
+            ${{ github.event.inputs.vipb_file }}
