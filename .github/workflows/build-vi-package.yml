@@ -27,6 +27,34 @@ env:
   ATTACH_ARTIFACTS_TO_RELEASE: true
 
 jobs:
+  json-to-vipb:
+    runs-on: ubuntu-latest
+
+    outputs:
+      vipb-path: ${{ steps.inject.outputs.vipb }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # optional: mutate JSON (version stamp, etc.)
+      # - name: Patch JSON
+      #   run: jq '.Library_General_Settings.Library_Version |= "1.2.${{ github.run_number }}"' \
+      #        iconeditor.json > iconeditor.patched.json
+
+      - name: JSON ➜ VIPB
+        id: inject                       #  <-- gives us outputs.vipb
+        uses: svelderrainruiz/json-vipb@v0.1.0
+        with:
+          mode: json2vipb
+          in:  Tooling\deployment\iconeditor.json            # JSON lives next to VIPB
+          out: Tooling\deployment\niiconeditor.vipb            # overwrite or create
+
+      - name: Upload patched VIPB
+        uses: actions/upload-artifact@v4
+        with:
+          name: patched-vipb
+          path: niiconeditor.vipb
+
   build-release:
     runs-on: [self-hosted-windows-lv]
     permissions:
@@ -199,23 +227,12 @@ jobs:
           "MINOR=$newMinor"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           "PATCH=$newPatch"            | Out-File -FilePath $env:GITHUB_OUTPUT -Append
           
-      - name: Extract VIPB JSON
-        id: extract_vipb_json
-        uses: svelderrainruiz/json-vipb@v0.1.0   # pin a tag
+      - name: Download VIPB from Linux job
+        uses: actions/download-artifact@v4
         with:
-          mode: vipb2json
-          in:  Tooling/deployment/NIIconEditor.vipb           
-          out: Tooling/deployment/iconeditor.json
+          name: patched-vipb
+          path: Tooling\deployment\ni icon editor.vipb
 
-# …insert your json‑modification step here…
-
-      - name: Inject VIPB JSON
-        id: inject_vipb_json
-        uses: svelderrainruiz/json-vipb@v0.1.0
-        with:
-          mode: json2vipb                       # <- correct mode
-          in:  Tooling/deployment/iconeditor.json           # patched json
-          out: Tooling/deployment/NI Icon Editor.vipb           # overwrite or new path
 
       ########################################################################
       # 5) Build the icon editor VI package
