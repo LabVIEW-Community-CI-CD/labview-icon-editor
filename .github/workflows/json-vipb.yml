@@ -1,53 +1,62 @@
-name: VIPB → JSON
+name: JSON VIPB One-Step
 
 on:
   workflow_dispatch:
     inputs:
-      vipb_path:
-        description: 'Path to the .vipb file to convert (relative to repo root)'
+      mode:
+        description: 'Conversion mode'
+        required: true
+        default: 'vipb2json'
+        type: choice
+        options:
+          - vipb2json
+          - json2vipb
+      in_file:
+        description: 'Input file (relative to repo root)'
         required: true
         default: './Tooling/deployment/NI Icon editor LVAddon.vipb'
+      out_file:
+        description: 'Output file (relative to repo root)'
+        required: true
+        default: './Tooling/deployment/NI Icon editor LVAddon.json'
 
 jobs:
-  roundtrip:
+  json-vipb:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Print workspace and folder tree
+      - name: Print user input
         run: |
-          echo "Working dir: $PWD"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "Tree:"
-          find . -type d | sort
-          echo "Files:"
-          find . -type f | sort
+          echo "Mode: ${{ github.event.inputs.mode }}"
+          echo "Input file: ${{ github.event.inputs.in_file }}"
+          echo "Output file: ${{ github.event.inputs.out_file }}"
+          ls -l "${{ github.event.inputs.in_file }}" || true
 
-      # Print the file path actually being used
-      - name: Echo VIPB input path
-        run: |
-          echo "VIPB input path: ${{ github.event.inputs.vipb_path }}"
-          ls -l "${{ github.event.inputs.vipb_path }}"
-
-      - name: VIPB → JSON
+      - name: Run json-vipb action
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
-          args: vipb2json "${{ github.event.inputs.vipb_path }}" roundtrip.json
+          args: ${{ github.event.inputs.mode }} "${{ github.event.inputs.in_file }}" "${{ github.event.inputs.out_file }}"
 
-      - name: Print extracted JSON (pretty)
+      - name: Print output file (if JSON)
+        if: ${{ github.event.inputs.mode == 'vipb2json' }}
         run: |
-          echo "-------------------"
-          echo "Extracted roundtrip.json contents:"
-          if command -v jq > /dev/null; then
-            jq . roundtrip.json
+          if [ -f "${{ github.event.inputs.out_file }}" ]; then
+            echo "-------------------"
+            echo "${{ github.event.inputs.out_file }} contents:"
+            if command -v jq > /dev/null; then
+              jq . "${{ github.event.inputs.out_file }}"
+            else
+              cat "${{ github.event.inputs.out_file }}"
+            fi
+            echo "-------------------"
           else
-            cat roundtrip.json
+            echo "Output file not found."
           fi
-          echo "-------------------"
 
       - uses: actions/upload-artifact@v4
         with:
           name: vipb-json-artifacts
           path: |
-            ${{ github.event.inputs.vipb_path }}
-            roundtrip.json
+            ${{ github.event.inputs.in_file }}
+            ${{ github.event.inputs.out_file }}
