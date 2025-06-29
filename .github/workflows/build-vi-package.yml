@@ -41,13 +41,12 @@ jobs:
       #   run: jq '.Library_General_Settings.Library_Version |= "1.2.${{ github.run_number }}"' \
       #        iconeditor.json > iconeditor.patched.json
 
-      - name: JSON ➜ VIPB
-        id: inject                       #  <-- gives us outputs.vipb
-        uses: svelderrainruiz/json-vipb@v0.1.0
+      - name: JSON → VIPB
+        uses: svelderrainruiz/json-vipb@v0.1.1        # latest tag
         with:
-          mode: json2vipb
-          in:  iconeditor.json
-          out: niiconeditor.vipb            # overwrite or create
+          mode: json2vipb               # <- A‑2
+          in:  iconeditor.json          # (file exists in repo)
+          out: iconeditor.vipb          # will be created/overwritten
 
       - name: Upload patched VIPB
         uses: actions/upload-artifact@v4
@@ -56,6 +55,7 @@ jobs:
           path: niiconeditor.vipb
 
   build-release:
+    needs: json-to-vipb
     runs-on: [self-hosted-windows-lv]
     permissions:
       contents: write
