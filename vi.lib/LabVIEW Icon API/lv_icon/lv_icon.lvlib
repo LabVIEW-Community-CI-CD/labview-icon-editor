@@ -11,6 +11,16 @@
 	<Item Name="Friends List" Type="Friends List">
 		<Item Name="lv_IconEditor.lvlib" Type="Friended Library" URL="/&lt;resource&gt;/plugins/lv_IconEditor.lvlib"/>
 	</Item>
+	<Item Name="Editor Position" Type="Folder">
+		<Item Name="Read Editor Position from INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Read Editor Position from INI.vi"/>
+		<Item Name="Save Editor Position to INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Save Editor Position to INI.vi"/>
+		<Item Name="Set Editor Position.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/Editor Position/Set Editor Position.vi"/>
+	</Item>
+	<Item Name="INI" Type="Folder">
+		<Item Name="INI Data.ctl" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/INI/INI Data.ctl"/>
+		<Item Name="Read Data From LabVIEW INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/INI/Read Data From LabVIEW INI.vi"/>
+		<Item Name="Write Data to LabVIEW INI.vi" Type="VI" URL="/&lt;resource&gt;/plugins/NIIconEditor/INI/Write Data to LabVIEW INI.vi"/>
+	</Item>
 	<Item Name="Other" Type="Folder">
 		<Item Name="Adjust temporary rotate and flip rectangle.vi" Type="VI" URL="/&lt;vilib&gt;/LabVIEW Icon API/lv_icon/Support/Adjust temporary rotate and flip rectangle.vi"/>
 		<Item Name="Apply Opacity.vi" Type="VI" URL="/&lt;vilib&gt;/LabVIEW Icon API/lv_icon/Support/Apply Opacity.vi"/>
