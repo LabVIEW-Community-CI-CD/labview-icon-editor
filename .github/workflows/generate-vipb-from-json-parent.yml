@@ -1,4 +1,4 @@
-name: Modify JSON and Convert to VIPB
+name: Generate VIPB From JSON Parent
 
 on:
   workflow_dispatch:
