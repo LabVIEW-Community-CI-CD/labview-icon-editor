@@ -1,4 +1,4 @@
-name: Immediate VIPB ↔ JSON test (with folder tree)
+name: Immediate VIPB ↔ JSON test (with folder tree and JSON print)
 
 on: [workflow_dispatch]
 
@@ -23,6 +23,18 @@ jobs:
         uses: svelderrainruiz/json-vipb@v0.1.4
         with:
           args: json2vipb iconeditor.json iconeditor.vipb
+
+      # ---------- PRINT JSON FILE CONTENTS ----------
+      - name: Print JSON (pretty)
+        run: |
+          echo "-------------------"
+          echo "iconeditor.json contents:"
+          if command -v jq > /dev/null; then
+            jq . iconeditor.json
+          else
+            cat iconeditor.json
+          fi
+          echo "-------------------"
 
       - name: VIPB → JSON
         uses: svelderrainruiz/json-vipb@v0.1.4
