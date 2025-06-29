@@ -1,0 +1,35 @@
+name: Immediate VIPB ↔ JSON test (args workaround)
+
+on: [workflow_dispatch]
+
+jobs:
+  roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: JSON → VIPB
+        id: inject
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: json2vipb iconeditor.json iconeditor.vipb
+
+      - name: VIPB → JSON
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json iconeditor.vipb roundtrip.json
+
+      - name: Compare hash
+        run: |
+          orig=$(sha256sum iconeditor.json | cut -d' ' -f1)
+          new=$(sha256sum roundtrip.json | cut -d' ' -f1)
+          echo "orig=$orig  new=$new"
+          [ "$orig" = "$new" ] || { echo "::error::hash mismatch"; exit 1; }
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vipb-json-artifacts
+          path: |
+            iconeditor.json
+            iconeditor.vipb
+            roundtrip.json
