@@ -1,0 +1,60 @@
+name: Seed JSON for svelderrainruiz/json-vipb Action
+
+on:
+  workflow_dispatch:
+    inputs:
+      vipb_file:
+        description: 'Input VIPB file (relative to repo root, e.g. Tooling/deployment/NI Icon editor LVAddon.vipb)'
+        required: true
+        default: 'Tooling/deployment/NI Icon editor LVAddon.vipb'
+
+jobs:
+  seed-json-to-feature-branch:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Compute JSON filename and branch
+        id: meta
+        run: |
+          ORG="${{ github.repository_owner }}"
+          REPO="${GITHUB_REPOSITORY##*/}"
+          JSONFILE="$ORG-$REPO.json"
+          NOW=$(date +'%Y%m%d-%H%M%S')
+          SHORTSHA=$(git rev-parse --short HEAD)
+          BRANCH="seed/json-vipb/$ORG-$REPO/$NOW-$SHORTSHA"
+          echo "json_file=$JSONFILE"      >> $GITHUB_OUTPUT
+          echo "branch_name=$BRANCH"      >> $GITHUB_OUTPUT
+
+      - name: Show intended files/branch
+        run: |
+          echo "VIPB file:   ${{ github.event.inputs.vipb_file }}"
+          echo "JSON file:   ${{ steps.meta.outputs.json_file }}"
+          echo "Branch:      ${{ steps.meta.outputs.branch_name }}"
+
+      - name: VIPB → JSON (repo root)
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json "${{ github.event.inputs.vipb_file }}" "${{ steps.meta.outputs.json_file }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: json-seed
+          path: ${{ steps.meta.outputs.json_file }}
+
+      - name: Create and push seed branch with JSON
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -e
+          git checkout -b "${{ steps.meta.outputs.branch_name }}"
+          git add "${{ steps.meta.outputs.json_file }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git commit -m "Seed JSON for svelderrainruiz/json-vipb: ${{ steps.meta.outputs.json_file }} [ci skip]"
+          git push --set-upstream origin "${{ steps.meta.outputs.branch_name }}"
+
+          echo "Created and pushed branch: ${{ steps.meta.outputs.branch_name }}"
+          echo "Seed file: ${{ steps.meta.outputs.json_file }} (at repo root)"
