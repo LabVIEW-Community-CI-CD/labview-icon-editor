@@ -6,7 +6,7 @@ on:
       vipb_file:
         description: 'Input VIPB file (relative to repo root, e.g. Tooling/deployment/NI Icon editor LVAddon.vipb)'
         required: true
-        default: 'svelderrainruiz-labview-icon-editor.vipb'
+        default: './svelderrainruiz-labview-icon-editor.vipb'
       new_company_name:
         description: 'New value for Company_Name field'
         required: true
