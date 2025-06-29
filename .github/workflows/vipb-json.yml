@@ -1,4 +1,4 @@
-name: Immediate VIPB ↔ JSON test (with file input)
+name: VIPB → JSON
 
 on:
   workflow_dispatch:
