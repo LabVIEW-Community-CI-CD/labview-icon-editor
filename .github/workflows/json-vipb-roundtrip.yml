@@ -1,0 +1,72 @@
+name: VIPB JSON Roundtrip
+
+on:
+  workflow_dispatch:
+    inputs:
+      vipb_path:
+        description: 'Path to original .vipb file (relative to repo root)'
+        required: true
+        default: './Tooling/deployment/NI Icon editor LVAddon.vipb'
+      out_json1:
+        description: 'Temp JSON (step 1 output)'
+        required: true
+        default: './Tooling/deployment/rt1.json'
+      roundtrip_vipb:
+        description: 'Temp VIPB (step 2 output)'
+        required: true
+        default: './Tooling/deployment/rt2.vipb'
+      out_json2:
+        description: 'Temp JSON (step 3 output)'
+        required: true
+        default: './Tooling/deployment/rt2.json'
+
+jobs:
+  roundtrip:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 1️⃣ VIPB → JSON
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json "${{ github.event.inputs.vipb_path }}" "${{ github.event.inputs.out_json1 }}"
+
+      - name: 2️⃣ JSON → VIPB
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: json2vipb "${{ github.event.inputs.out_json1 }}" "${{ github.event.inputs.roundtrip_vipb }}"
+
+      - name: 3️⃣ VIPB → JSON (round-tripped)
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json "${{ github.event.inputs.roundtrip_vipb }}" "${{ github.event.inputs.out_json2 }}"
+
+      - name: 4️⃣ Print both JSONs (pretty)
+        run: |
+          echo "---- Original JSON (step 1) ----"
+          jq . "${{ github.event.inputs.out_json1 }}" || cat "${{ github.event.inputs.out_json1 }}"
+          echo "---- Round-tripped JSON (step 3) ----"
+          jq . "${{ github.event.inputs.out_json2 }}" || cat "${{ github.event.inputs.out_json2 }}"
+
+      - name: 5️⃣ Compare hashes
+        id: compare
+        run: |
+          hash1=$(sha256sum "${{ github.event.inputs.out_json1 }}" | cut -d' ' -f1)
+          hash2=$(sha256sum "${{ github.event.inputs.out_json2 }}" | cut -d' ' -f1)
+          echo "hash1=$hash1"
+          echo "hash2=$hash2"
+          if [ "$hash1" = "$hash2" ]; then
+            echo "Hashes MATCH: Round-trip was lossless"
+          else
+            echo "::error::Hashes differ! Round-trip is not lossless"
+            exit 1
+          fi
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vipb-json-roundtrip-artifacts
+          path: |
+            ${{ github.event.inputs.vipb_path }}
+            ${{ github.event.inputs.out_json1 }}
+            ${{ github.event.inputs.roundtrip_vipb }}
+            ${{ github.event.inputs.out_json2 }}
