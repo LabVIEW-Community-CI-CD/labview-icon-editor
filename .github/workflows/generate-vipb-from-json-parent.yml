@@ -6,7 +6,7 @@ on:
       json_file:
         description: 'Input JSON file (relative to repo root)'
         required: true
-        default: './Tooling/deployment/NI Icon editor LVAddon.json'
+        default: './iconeditor.json'
       json_field:
         description: 'Field to modify (jq syntax, e.g. .Library_General_Settings.Company_Name.__text)'
         required: true
@@ -18,7 +18,7 @@ on:
       vipb_file:
         description: 'Output VIPB file (relative to repo root)'
         required: true
-        default: './Tooling/deployment/NI Icon editor LVAddon.MODIFIED.vipb'
+        default: './Tooling/deployment/NI Icon editor.vipb'
 
 jobs:
   modify-and-convert:
