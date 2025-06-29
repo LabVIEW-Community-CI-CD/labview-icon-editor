@@ -46,8 +46,8 @@ jobs:
         uses: svelderrainruiz/json-vipb@v0.1.0
         with:
           mode: json2vipb
-          in:  Tooling\deployment\iconeditor.json            # JSON lives next to VIPB
-          out: Tooling\deployment\niiconeditor.vipb            # overwrite or create
+          in:  iconeditor.json
+          out: niiconeditor.vipb            # overwrite or create
 
       - name: Upload patched VIPB
         uses: actions/upload-artifact@v4
@@ -231,7 +231,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: patched-vipb
-          path: Tooling\deployment\ni icon editor.vipb
+          path: niiconeditor.vipb
 
 
       ########################################################################
