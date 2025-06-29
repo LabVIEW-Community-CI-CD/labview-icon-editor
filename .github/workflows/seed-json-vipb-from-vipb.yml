@@ -1,0 +1,63 @@
+name: Seed JSON-VIPB Action from VIPB File
+
+on:
+  workflow_dispatch:
+    inputs:
+      vipb_file:
+        description: 'Input VIPB file (relative to repo root, e.g. svelderrainruiz-labview-icon-editor.vipb)'
+        required: true
+        default: 'svelderrainruiz-labview-icon-editor.vipb'
+      commit_json:
+        description: 'Commit extracted JSON back to the repo?'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'true'
+          - 'false'
+
+jobs:
+  seed-json-from-vipb:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Compute the output JSON name by replacing .vipb with .json
+      - name: Derive JSON file path
+        id: derive
+        run: |
+          out_json="${{ github.event.inputs.vipb_file }}"
+          out_json="${out_json%.vipb}.json"
+          echo "json_file=$out_json" >> $GITHUB_OUTPUT
+
+      - name: Print file paths
+        run: |
+          echo "VIPB file:    ${{ github.event.inputs.vipb_file }}"
+          echo "JSON file:    ${{ steps.derive.outputs.json_file }}"
+
+      - name: VIPB → JSON
+        uses: svelderrainruiz/json-vipb@v0.1.4
+        with:
+          args: vipb2json "${{ github.event.inputs.vipb_file }}" "${{ steps.derive.outputs.json_file }}"
+
+      - name: Print JSON (pretty)
+        run: |
+          echo "-------------------"
+          echo "${{ steps.derive.outputs.json_file }} contents:"
+          jq . "${{ steps.derive.outputs.json_file }}" || cat "${{ steps.derive.outputs.json_file }}"
+          echo "-------------------"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: json-from-vipb
+          path: ${{ steps.derive.outputs.json_file }}
+
+      # Optionally commit the extracted JSON
+      - name: Commit and push JSON
+        if: ${{ github.event.inputs.commit_json == 'true' }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add "${{ steps.derive.outputs.json_file }}"
+          git commit -m "Seeded JSON from VIPB: ${{ github.event.inputs.vipb_file }}"
+          git push origin HEAD:${GITHUB_REF#refs/heads/}
