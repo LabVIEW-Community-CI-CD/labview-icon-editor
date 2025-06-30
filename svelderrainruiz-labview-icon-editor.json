@@ -51,15 +51,6 @@
     "Advanced_Settings": {
       "Package_Dependencies": {
         "Additional_External_Dependencies": {
-          "__text": "oglib_array >=6.0.1.20"
-        },
-        "Additional_External_Dependencies": {
-          "__text": "oglib_error >=6.0.0.26"
-        },
-        "Additional_External_Dependencies": {
-          "__text": "oglib_file >=6.0.2.28"
-        },
-        "Additional_External_Dependencies": {
           "__text": "oglib_lvzip >=5.0.9"
         }
       },
@@ -199,62 +190,6 @@
         },
         "Additional_Destination": {
           "Name": {
-            "__text": "LVAddons"
-          },
-          "LLB": {
-            "__text": "false"
-          },
-          "Preserve_Hierarchy": {
-            "__text": "false"
-          },
-          "Path": {
-            "__text": "<OS Application Files>\\NI\\LVAddons\\niiconeditor64"
-          }
-        },
-        "Additional_Destination": {
-          "Name": {
-            "__text": "Install artifacts"
-          },
-          "LLB": {
-            "__text": "false"
-          },
-          "Preserve_Hierarchy": {
-            "__text": "true"
-          },
-          "Path": {
-            "__text": "<OS Public Documents>\\National Instruments\\LabVIEW Icon Editor\\install"
-          }
-        },
-        "Additional_Destination": {
-          "Name": {
-            "__text": "Uninstall artifacts"
-          },
-          "LLB": {
-            "__text": "false"
-          },
-          "Preserve_Hierarchy": {
-            "__text": "true"
-          },
-          "Path": {
-            "__text": "<OS Public Documents>\\National Instruments\\LabVIEW Icon Editor\\uninstall"
-          }
-        },
-        "Additional_Destination": {
-          "Name": {
-            "__text": "Install artifacts temp"
-          },
-          "LLB": {
-            "__text": "false"
-          },
-          "Preserve_Hierarchy": {
-            "__text": "true"
-          },
-          "Path": {
-            "__text": "<OS Public Documents>\\National Instruments\\LabVIEW Icon Editor\\install\\temp"
-          }
-        },
-        "Additional_Destination": {
-          "Name": {
             "__text": "Icon editor public documents"
           },
           "LLB": {
@@ -269,34 +204,6 @@
         }
       },
       "Source_Files": {
-        "Destination_Overrides": {
-          "Path": {
-            "__text": "."
-          },
-          "Destination": {
-            "__text": "0"
-          },
-          "Additional_Destination": {
-            "__text": "true"
-          },
-          "Additional_Destination_Index": {
-            "__text": "4"
-          }
-        },
-        "Destination_Overrides": {
-          "Path": {
-            "__text": "Tooling/deployment/lv_icon_versions/lv_icon_uninstall_backup.zip"
-          },
-          "Destination": {
-            "__text": "0"
-          },
-          "Additional_Destination": {
-            "__text": "true"
-          },
-          "Additional_Destination_Index": {
-            "__text": "2"
-          }
-        },
         "Destination_Overrides": {
           "Path": {
             "__text": "resource/plugins"
@@ -331,240 +238,12 @@
         },
         "Exclusions": {
           "Path": {
-            "__text": ".github"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Antidoc-Output"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "pipeline/scripts"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "pipeline/templates"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "vi.lib"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": ".gitattributes"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": ".gitignore"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "CODE_OF_CONDUCT.md"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "CONTRIBUTING.md"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "LICENSE"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "lv_icon_editor.lvproj"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "README.md"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "pipeline"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "resource/plugins/NIIconEditor"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "resource/plugins/lv_icon.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "resource/plugins/lv_icon.vit"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "resource/plugins/lv_IconEditor.lvlib"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "resource/plugins/SAMPLE_lv_icon.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/ApplyVIPC.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/BuildVIPackage.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/Create_LV_INI_Token.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/CreateLVAddonJSONfile.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/Destroy_LV_INI_Token.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/ModifyProjectBuildOutput.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/NIP Post uninstall.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/support"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/CI CD.lvproj"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Force Icon Editor to Unload.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Post Build Icon Editor PPL.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Pre Build Icon Editor PPL.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Prepare LV to Use Icon Editor Source.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/PrepareIESource.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Run all tests CLI.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/Run all tests.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/RestoreSetupLVSource.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "docs"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "GOVERNANCE.md"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "requirements.txt"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment/Modify_VIPB_Display_Information.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/PrepareIESourceCore.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/RestoreSetupLVSourceCore.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/VIP_Post-Install Custom Action.vi"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling/deployment"
-          }
-        },
-        "Exclusions": {
-          "Path": {
-            "__text": "Tooling"
-          }
-        },
-        "Exclusions": {
-          "Path": {
             "__text": "Test"
           }
         },
         "Compile_Exclusions": {
           "Path": {
             "__text": "."
-          }
-        },
-        "Place_Folder_Contents": {
-          "Path": {}
-        },
-        "Place_Folder_Contents": {
-          "Path": {
-            "__text": "pipeline/lv_icon_versions"
           }
         },
         "Place_Folder_Contents": {
@@ -701,5 +380,10 @@
       "System_Destinations": {}
     },
     "Library_Palette_Definition": {}
+  },
+  "Library_General_Settings": {
+    "Company_Name": {
+      "__text": "svelderrainruiz"
+    }
   }
 }
