@@ -1,4 +1,4 @@
-<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2025-07-13 10:22:57" Creator="svelderr" Comments="" ID="225d2240f3e70c315193cc8f2d0a227d">
+<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2025-07-13 10:38:55" Creator="svelderr" Comments="" ID="dfbcff446fb9e652fa42435ce06c5e03">
   <Library_General_Settings>
     <Package_File_Name>NI_Icon_editor</Package_File_Name>
     <Library_Version>21.0.0.12</Library_Version>
@@ -310,6 +310,9 @@
       </Place_Folder_Contents>
       <Place_Folder_Contents>
         <Path>Tooling/deployment/lv_icon_versions</Path>
+      </Place_Folder_Contents>
+      <Place_Folder_Contents>
+        <Path>resource/plugins</Path>
       </Place_Folder_Contents>
     </Source_Files>
     <License_Agreement_Filepath/>
