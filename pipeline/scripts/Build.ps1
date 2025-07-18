@@ -220,7 +220,7 @@ try {
             "-SupportedBitness 64 " +
             "-RelativePath `"$RelativePath`" " +
             "-VIPBPath `"Tooling\deployment\NI Icon editor.vipb`" " +
-            "-MinimumSupportedLVVersion 2021 " +
+            "-MinimumSupportedLVVersion 2023 " +
             "-LabVIEWMinorRevision $LabVIEWMinorRevision " +
             "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
             "-Commit `"$Commit`" " +
