@@ -121,7 +121,7 @@ $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
 # 5) Construct the command script
 $script = @"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness vipb -- --buildspec "$ResolvedVIPBPath" -v "$Major.$Minor.$Patch.$Build" --release-notes "$ReleaseNotesFile" --timeout 300
+g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness "$($ResolvedRelativePath)\Tooling\deployment\Modify_VIPB_Display_Information.vi" -- "$ResolvedVIPBPath" "$VIP_LVVersion_A" '$UpdatedDisplayInformationJSON'
 "@
 
 Write-Output "Executing the following commands:"
