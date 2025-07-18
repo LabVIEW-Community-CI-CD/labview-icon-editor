@@ -1,4 +1,4 @@
-<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2025-06-28 00:32:02" Creator="svelderr" Comments="" ID="3f49c096859f2e6eb3f5b59ff13fa049">
+<VI_Package_Builder_Settings Version="2020.1" Created_Date="2024-11-13 13:58:09" Modified_Date="2025-07-13 10:50:54" Creator="svelderr" Comments="" ID="7ab4fdaedde9a54a2cbe686c1e66b061">
   <Library_General_Settings>
     <Package_File_Name>NI_Icon_editor</Package_File_Name>
     <Library_Version>21.0.0.12</Library_Version>
@@ -119,7 +119,7 @@
       <Additional_Destination>
         <Name>Install artifacts temp</Name>
         <LLB>false</LLB>
-        <Preserve_Hierarchy>true</Preserve_Hierarchy>
+        <Preserve_Hierarchy>false</Preserve_Hierarchy>
         <Path>&lt;OS Public Documents&gt;\National Instruments\LabVIEW Icon Editor\install\temp</Path>
       </Additional_Destination>
       <Additional_Destination>
@@ -146,7 +146,7 @@
         <Path>resource/plugins</Path>
         <Destination>0</Destination>
         <Additional_Destination>true</Additional_Destination>
-        <Additional_Destination_Index>1</Additional_Destination_Index>
+        <Additional_Destination_Index>3</Additional_Destination_Index>
       </Destination_Overrides>
       <Password_Overrides>
         <Path>.</Path>
@@ -310,6 +310,9 @@
       </Place_Folder_Contents>
       <Place_Folder_Contents>
         <Path>Tooling/deployment/lv_icon_versions</Path>
+      </Place_Folder_Contents>
+      <Place_Folder_Contents>
+        <Path>resource/plugins</Path>
       </Place_Folder_Contents>
     </Source_Files>
     <License_Agreement_Filepath/>
