@@ -119,55 +119,26 @@ else {
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
-# 5) Build and execute the g‑cli commands ────────────────
-#    We invoke each command individually, check $LASTEXITCODE,
-#    and stop on first failure.
+# 5) Construct the command script
+$script = @"
+g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness "$($ResolvedRelativePath)\Tooling\deployment\Modify_VIPB_Display_Information.vi" -- "$ResolvedVIPBPath" "$VIP_LVVersion_A" '$UpdatedDisplayInformationJSON'
+g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness vipb -- --buildspec "$ResolvedVIPBPath" -v "$Major.$Minor.$Patch.$Build" --release-notes "$ReleaseNotesFile" --timeout 300
+"@
 
-# Helper to run g‑cli and abort on error
-function Invoke-GCliSafely {
-    param (
-        [string[]]$Args,          # full argument list, first element is the exe
-        [string]  $FailureLabel   # short description for error object
-    )
+Write-Output "Executing the following commands:"
+Write-Output $script
 
-    # Pretty‑print the command we’re about to run
-    Write-Output ('{0} {1}' -f $Args[0], ($Args[1..($Args.Count-1)] -join ' '))
-
-    & $Args[0] $Args[1..($Args.Count-1)]
-    if ($LASTEXITCODE -ne 0) {
-        # Wrap the failure the same way earlier errors are wrapped
-        $errorObject = [pscustomobject]@{
-            error      = "$FailureLabel failed."
-            exitCode   = $LASTEXITCODE
-        }
-        $errorObject | ConvertTo-Json -Depth 5
-        exit $LASTEXITCODE
-    }
+# 6) Execute the commands
+try {
+    Invoke-Expression $script
+    Write-Host "Successfully built VI package: $ResolvedVIPBPath"
 }
-
-# ── First g‑cli: update the VIPB display information
-$modifyArgs = @(
-    'g-cli'
-    '--lv-ver'  , $MinimumSupportedLVVersion
-    '--arch'    , $SupportedBitness
-    "$($ResolvedRelativePath)\Tooling\deployment\Modify_VIPB_Display_Information.vi"
-    '--'        , $ResolvedVIPBPath
-    $VIP_LVVersion_A
-    $UpdatedDisplayInformationJSON
-)
-Invoke-GCliSafely -Args $modifyArgs -FailureLabel 'Modify_VIPB_Display_Information.vi'
-
-# ── Second g‑cli: build the VI Package
-$buildArgs = @(
-    'g-cli'
-    '--lv-ver'      , $MinimumSupportedLVVersion
-    '--arch'        , $SupportedBitness
-    'vipb'          , '--'
-    '--buildspec'   , $ResolvedVIPBPath
-    '-v'            , "$Major.$Minor.$Patch.$Build"
-    '--release-notes', $ReleaseNotesFile
-    '--timeout'     , '300'
-)
-Invoke-GCliSafely -Args $buildArgs -FailureLabel 'vipb build'
-
-Write-Host "Successfully built VI package: $ResolvedVIPBPath"
+catch {
+    $errorObject = [PSCustomObject]@{
+        error      = "An error occurred while executing the build commands."
+        exception  = $_.Exception.Message
+        stackTrace = $_.Exception.StackTrace
+    }
+    $errorObject | ConvertTo-Json -Depth 10
+    exit 1
+}
