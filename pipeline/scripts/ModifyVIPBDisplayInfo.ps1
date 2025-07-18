@@ -16,9 +16,9 @@ Key Steps:
 7. Handles errors by outputting error details in JSON format.
 
 Example Usage:
-.\build_vip.ps1 `
+.\ModifyVIPBDisplayInfo.ps1 `
   -SupportedBitness "64" `
-  -RelativePath "C:\labview-icon-editor-fork" `
+  -RelativePath "C:\release\labview-icon-editor-fork" `
   -VIPBPath "Tooling\deployment\NI Icon editor.vipb" `
   -MinimumSupportedLVVersion 2021 `
   -LabVIEWMinorRevision 3 `
@@ -27,7 +27,7 @@ Example Usage:
   -Patch 0 `
   -Build 2 `
   -Commit "Placeholder" `
-  -ReleaseNotesFile "C:\labview-icon-editor-fork\Tooling\deployment\release_notes.md" `
+  -ReleaseNotesFile "C:\release\labview-icon-editor-fork\Tooling\deployment\release_notes.md" `
   -DisplayInformationJSON '{"Package Version":{"major":0,"minor":0,"patch":0,"build":0},"Product Name":"","Company Name":"","Author Name (Person or Company)":"","Product Homepage (URL)":"","Legal Copyright":"","License Agreement Name":"","Product Description Summary":"","Product Description":"","Release Notes - Change Log":""}'
 
 #>
@@ -118,11 +118,10 @@ else {
 
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
-////g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness vipb -- --buildspec "$ResolvedVIPBPath" -v "$Major.$Minor.$Patch.$Build" --release-notes "$ReleaseNotesFile" --timeout 300
 
 # 5) Construct the command script
 $script = @"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness "$($ResolvedRelativePath)\Tooling\deployment\Modify_VIPB_Display_Information.vi" -- "$ResolvedVIPBPath" "$VIP_LVVersion_A" '$UpdatedDisplayInformationJSON'
+g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness vipb -- --buildspec "$ResolvedVIPBPath" -v "$Major.$Minor.$Patch.$Build" --release-notes "$ReleaseNotesFile" --timeout 300
 "@
 
 Write-Output "Executing the following commands:"
