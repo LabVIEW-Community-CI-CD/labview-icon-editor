@@ -37,7 +37,7 @@ NI’s Open Source Program encourages **community collaboration** to evolve and 
 ## 📦 How to Install
 
 > **Prerequisites:**  
-> • LabVIEW 2021 SP1 or newer  
+> • LabVIEW 2023 SP1 or newer  
 
 1. **Download** the latest `.vip` file from the [releases page](https://github.com/ni/labview-icon-editor/releases/latest).  
 2. **Open VIPM** in Administrator mode.
@@ -149,4 +149,4 @@ By contributing, you grant NI the right to distribute your changes with LabVIEW.
 ---
 
 ### 🙏 Thanks for Contributing!
-Your ideas, tests, and code shape the Icon Editor experience across **LabVIEW 2021–2026** and beyond.
+Your ideas, tests, and code shape the Icon Editor experience across **LabVIEW 2023–2026** and beyond.
