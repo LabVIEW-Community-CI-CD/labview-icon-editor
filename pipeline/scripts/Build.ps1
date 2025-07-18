@@ -220,7 +220,7 @@ try {
             "-SupportedBitness 64 " +
             "-RelativePath `"$RelativePath`" " +
             "-VIPBPath `"Tooling\deployment\NI Icon editor.vipb`" " +
-            "-MinimumSupportedLVVersion 2023 " +
+            "-MinimumSupportedLVVersion 2021 " +
             "-LabVIEWMinorRevision $LabVIEWMinorRevision " +
             "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
             "-Commit `"$Commit`" " +
@@ -229,10 +229,10 @@ try {
             "-DisplayInformationJSON '$DisplayInformationJSON' " +
             "-Verbose"
         )
-    # 10) Close LabVIEW (64-bit)
+    # 10) Close LabVIEW (64-bit) LabVIEW version transitions from 2021 to 2023 here
     Write-Verbose "Closing LabVIEW (64-bit)..."
     Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
-        "-MinimumSupportedLVVersion 2023 -SupportedBitness 64"
+        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
 
     # 11) Build VI Package (64-bit) — no double-dash parameters
     Write-Verbose "Building VI Package (64-bit)..."
@@ -255,7 +255,7 @@ try {
     # 12) Close LabVIEW (64-bit)
     Write-Verbose "Closing LabVIEW (64-bit)..."
     Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+        "-MinimumSupportedLVVersion 2023 -SupportedBitness 64"
 
     Write-Host "All scripts executed successfully!" -ForegroundColor Green
     Write-Verbose "Script: Build.ps1 completed without errors."
