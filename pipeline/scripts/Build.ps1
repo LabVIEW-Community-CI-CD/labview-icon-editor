@@ -143,7 +143,7 @@ try {
          "-VIP_LVVersion 2021 " +
          "-SupportedBitness 32 " +
          "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\Dependencies.vipc`"")
+         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 3) Build LV Library (32-bit)
     Write-Verbose "Building LV library (32-bit)..."
@@ -171,7 +171,7 @@ try {
          "-VIP_LVVersion 2021 " +
          "-SupportedBitness 64 " +
          "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\Dependencies.vipc`"")
+         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 7) Build LV Library (64-bit)
     Write-Verbose "Building LV library (64-bit)..."
