@@ -214,7 +214,7 @@ try {
 
     # 9) Modify VIPB Display Information
     Write-Verbose "Modify VIPB Display Information (64-bit)..."
-    Execute-Script "$($AbsolutePathScripts)\build_vip.ps1" `
+    Execute-Script "$($AbsolutePathScripts)\ModifyVIPBDisplayInfo.ps1" `
         (
             # Use single-dash for all recognized parameters
             "-SupportedBitness 64 " +
@@ -229,10 +229,6 @@ try {
             "-DisplayInformationJSON '$DisplayInformationJSON' " +
             "-Verbose"
         )
-    # 10) Close LabVIEW (64-bit) LabVIEW version transitions from 2021 to 2023 here
-    Write-Verbose "Closing LabVIEW (64-bit)..."
-    Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
 
     # 11) Build VI Package (64-bit) — no double-dash parameters
     Write-Verbose "Building VI Package (64-bit)..."
