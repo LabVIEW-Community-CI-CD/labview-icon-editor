@@ -230,7 +230,12 @@ try {
             "-Verbose"
         )
 
-    # 11) Build VI Package (64-bit) — no double-dash parameters
+    # 4) Close LabVIEW (32-bit)
+    Write-Verbose "Closing LabVIEW (32-bit)..."
+    Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
+        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"        
+
+    # 11) Build VI Package (64-bit) 2023
     Write-Verbose "Building VI Package (64-bit)..."
     Execute-Script "$($AbsolutePathScripts)\build_vip.ps1" `
         (
