@@ -12,9 +12,9 @@
 
   Example usage:
     .\Build.ps1 `
-      -RelativePath "C:\labview-icon-editor-fork" `
-      -AbsolutePathScripts "C:\labview-icon-editor-fork\pipeline\scripts" `
-      -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder" `
+      -RelativePath "C:\release\labview-icon-editor-fork" `
+      -AbsolutePathScripts "C:\release\labview-icon-editor-fork\pipeline\scripts" `
+      -Major 1 -Minor 0 -Patch 0 -Build 3 -Commit "Placeholder" `
       -CompanyName "Acme Corporation" `
       -AuthorName "John Doe (Acme Corp)" `
       -Verbose
@@ -228,12 +228,7 @@ try {
             # Pass our JSON
             "-DisplayInformationJSON '$DisplayInformationJSON' " +
             "-Verbose"
-        )
-
-    # 4) Close LabVIEW (32-bit)
-    Write-Verbose "Closing LabVIEW (32-bit)..."
-    Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"        
+        )   
 
     # 11) Build VI Package (64-bit) 2023
     Write-Verbose "Building VI Package (64-bit)..."
