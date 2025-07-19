@@ -12,9 +12,9 @@
 
   Example usage:
     .\Build.ps1 `
-      -RelativePath "C:\labview-icon-editor-fork" `
-      -AbsolutePathScripts "C:\labview-icon-editor-fork\pipeline\scripts" `
-      -Major 1 -Minor 0 -Patch 0 -Build 0 -Commit "Placeholder" `
+      -RelativePath "C:\release\labview-icon-editor-fork" `
+      -AbsolutePathScripts "C:\release\labview-icon-editor-fork\pipeline\scripts" `
+      -Major 1 -Minor 0 -Patch 0 -Build 3 -Commit "Placeholder" `
       -CompanyName "Acme Corporation" `
       -AuthorName "John Doe (Acme Corp)" `
       -Verbose
@@ -143,7 +143,7 @@ try {
          "-VIP_LVVersion 2021 " +
          "-SupportedBitness 32 " +
          "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\Dependencies.vipc`"")
+         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 3) Build LV Library (32-bit)
     Write-Verbose "Building LV library (32-bit)..."
@@ -171,7 +171,7 @@ try {
          "-VIP_LVVersion 2021 " +
          "-SupportedBitness 64 " +
          "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\Dependencies.vipc`"")
+         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 7) Build LV Library (64-bit)
     Write-Verbose "Building LV library (64-bit)..."
@@ -212,9 +212,9 @@ try {
 
     $DisplayInformationJSON = $jsonObject | ConvertTo-Json -Depth 3
 
-    # 9) Build VI Package (64-bit) — no double-dash parameters
-    Write-Verbose "Building VI Package (64-bit)..."
-    Execute-Script "$($AbsolutePathScripts)\build_vip.ps1" `
+    # 9) Modify VIPB Display Information
+    Write-Verbose "Modify VIPB Display Information (64-bit)..."
+    Execute-Script "$($AbsolutePathScripts)\ModifyVIPBDisplayInfo.ps1" `
         (
             # Use single-dash for all recognized parameters
             "-SupportedBitness 64 " +
@@ -228,12 +228,30 @@ try {
             # Pass our JSON
             "-DisplayInformationJSON '$DisplayInformationJSON' " +
             "-Verbose"
+        )   
+
+    # 11) Build VI Package (64-bit) 2023
+    Write-Verbose "Building VI Package (64-bit)..."
+    Execute-Script "$($AbsolutePathScripts)\build_vip.ps1" `
+        (
+            # Use single-dash for all recognized parameters
+            "-SupportedBitness 64 " +
+            "-RelativePath `"$RelativePath`" " +
+            "-VIPBPath `"Tooling\deployment\NI Icon editor.vipb`" " +
+            "-MinimumSupportedLVVersion 2023 " +
+            "-LabVIEWMinorRevision $LabVIEWMinorRevision " +
+            "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
+            "-Commit `"$Commit`" " +
+            "-ReleaseNotesFile `"$RelativePath\Tooling\deployment\release_notes.md`" " +
+            # Pass our JSON
+            "-DisplayInformationJSON '$DisplayInformationJSON' " +
+            "-Verbose"
         )
 
-    # 10) Close LabVIEW (64-bit)
+    # 12) Close LabVIEW (64-bit)
     Write-Verbose "Closing LabVIEW (64-bit)..."
     Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
-        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+        "-MinimumSupportedLVVersion 2023 -SupportedBitness 64"
 
     Write-Host "All scripts executed successfully!" -ForegroundColor Green
     Write-Verbose "Script: Build.ps1 completed without errors."

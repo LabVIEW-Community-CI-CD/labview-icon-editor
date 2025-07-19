@@ -16,22 +16,21 @@ Key Steps:
 7. Handles errors by outputting error details in JSON format.
 
 Example Usage:
-.\build_vip.ps1 `
+.\ModifyVIPBDisplayInfo.ps1 `
   -SupportedBitness "64" `
-  -RelativePath "C:\labview-icon-editor-fork" `
+  -RelativePath "C:\release\labview-icon-editor-fork" `
   -VIPBPath "Tooling\deployment\NI Icon editor.vipb" `
-  -MinimumSupportedLVVersion 2021 `
+  -MinimumSupportedLVVersion 2023 `
   -LabVIEWMinorRevision 3 `
   -Major 1 `
   -Minor 0 `
   -Patch 0 `
   -Build 2 `
   -Commit "Placeholder" `
-  -ReleaseNotesFile "C:\labview-icon-editor-fork\Tooling\deployment\release_notes.md" `
+  -ReleaseNotesFile "C:\release\labview-icon-editor-fork\Tooling\deployment\release_notes.md" `
   -DisplayInformationJSON '{"Package Version":{"major":0,"minor":0,"patch":0,"build":0},"Product Name":"","Company Name":"","Author Name (Person or Company)":"","Product Homepage (URL)":"","Legal Copyright":"","License Agreement Name":"","Product Description Summary":"","Product Description":"","Release Notes - Change Log":""}'
 
 #>
-
 param (
     [string]$SupportedBitness,
     [string]$RelativePath,
@@ -83,7 +82,7 @@ if ($SupportedBitness -eq "64") {
 else {
     $VIP_LVVersion_A = $lvNumericVersion
 }
-Write-Output "Building VI Package for LabVIEW $VIP_LVVersion_A..."
+Write-Output "Modifying VI Package Information using LabVIEW $VIP_LVVersion_A..."
 
 # 4) Parse and update the DisplayInformationJSON
 try {
@@ -119,19 +118,24 @@ else {
 # Re-convert to a JSON string with a comfortable nesting depth
 $UpdatedDisplayInformationJSON = $jsonObj | ConvertTo-Json -Depth 5
 
-# 5) Construct the command script
+# 5) Prepare the g-cli command and arguments
+$cmd  = "g-cli"
+$args = @(
+    '--lv-ver', $MinimumSupportedLVVersion,
+    '--arch',   $SupportedBitness,
+    "$ResolvedRelativePath\Tooling\deployment\Modify_VIPB_Display_Information.vi",
+    '--',
+    $ResolvedVIPBPath,
+    $VIP_LVVersion_A,
+    $UpdatedDisplayInformationJSON
+)
 
-$script = @"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness vipb -- --buildspec "$ResolvedVIPBPath" -v "$Major.$Minor.$Patch.$Build" --release-notes "$ReleaseNotesFile" --timeout 300
-"@
+Write-Output "Executing: $cmd $($args -join ' ')"
 
-Write-Output "Executing the following commands:"
-Write-Output $script
-
-# 6) Execute the commands
+# 6) Execute the command safely
 try {
-    Invoke-Expression $script
-    Write-Host "Successfully built VI package: $ResolvedVIPBPath"
+    & $cmd @args
+    Write-Host "Successfully Modified VI package information: $ResolvedVIPBPath"
 }
 catch {
     $errorObject = [PSCustomObject]@{
