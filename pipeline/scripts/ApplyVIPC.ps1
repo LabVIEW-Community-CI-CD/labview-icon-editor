@@ -4,7 +4,7 @@
     This version includes additional debug/verbose output.
 
 .EXAMPLE
-    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RelativePath "C:\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\Dependencies.vipc" -VIP_LVVersion "2021" -Verbose
+    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RelativePath "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
 #>
 
 [CmdletBinding()]  # Enables -Verbose and other common parameters
@@ -102,7 +102,7 @@ g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness -v "$($Resolv
 if ($VIP_LVVersion -ne $MinimumSupportedLVVersion) {
     Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion..."
     $script += @"
-g-cli --lv-ver $VIP_LVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_A"
+g-cli vipc -- -t 3000 -v "$VIP_LVVersion" "$ResolvedVIPCPath"
 "@
 }
 
