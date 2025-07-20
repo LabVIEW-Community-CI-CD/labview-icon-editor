@@ -181,6 +181,12 @@ try {
          "-RelativePath `"$RelativePath`" " +
          "-Major $Major -Minor $Minor -Patch $Patch -Build $Build " +
          "-Commit `"$Commit`"")
+    
+    # 7.1) Close LabVIEW (64-bit)
+    Write-Verbose "Closing LabVIEW (64-bit)..."
+    Execute-Script "$($AbsolutePathScripts)\Close_LabVIEW.ps1" `
+        "-MinimumSupportedLVVersion 2021 -SupportedBitness 64"
+    
 
     # Rename .lvlibp -> lv_icon_x64.lvlibp
     Write-Verbose "Renaming .lvlibp file to lv_icon_x64.lvlibp..."
