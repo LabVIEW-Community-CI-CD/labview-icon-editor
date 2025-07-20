@@ -6,7 +6,7 @@
 
 ---
 
-## 🧭 Table of Contents (Users)
+## 🧭 Table of Contents (Usersc)
 - 📌 [Overview](#overview)  
 - 📦 [How to Install](#how-to-install)
 
