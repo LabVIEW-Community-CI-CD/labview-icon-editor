@@ -109,6 +109,48 @@ jobs:
           "PATCH=$pat"                   | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
           "IS_PRERELEASE=$pre"           | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
+  apply-deps:
+    name: Apply VIPC Dependencies
+    needs: prepare
+    runs-on: self-hosted-windows-lv
+    steps:
+      - name: Apply 2021 32-bit VIPC
+        uses: ./.github/actions/apply-vipc
+        with:
+          minimum_supported_lv_version: "2021"
+          vip_lv_version:           "2021"
+          supported_bitness:        "32"
+          relative_path:            ${{ github.workspace }}
+          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
+          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
+
+      - name: Apply 2021 64-bit VIPC
+        uses: ./.github/actions/apply-vipc
+        with:
+          minimum_supported_lv_version: "2021"
+          vip_lv_version:           "2021"
+          supported_bitness:        "64"
+          relative_path:            ${{ github.workspace }}
+          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
+          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
+
+      - name: Apply 2023 64-bit VIPC
+        uses: ./.github/actions/apply-vipc
+        with:
+          minimum_supported_lv_version: "2023"
+          vip_lv_version:           "2023"
+          supported_bitness:        "64"
+          relative_path:            ${{ github.workspace }}
+          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
+          vipc_path:                "Tooling/deployment/runner_dependencies_2023.vipc"
+
+      - name: Summarize applied VIPC versions
+        shell: pwsh
+        run: |
+          $summary = "Applied VIPC for: 2021 (32-bit), 2021 (64-bit), 2023 (64-bit)"
+          Write-Host $summary
+          Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value "## VIPC Dependency Summary`n$summary"
+
   test:
     name: Run Unit Tests
     needs: [prepare, apply-deps]
@@ -145,40 +187,11 @@ jobs:
               $md += "| TestCaseName | ClassName | Status | Time(s) | Assertions |`n"
               $md += "|---|---|---|---|---|`n"
               foreach ($c in $cases) {
-                $md += "| " + $c.GetAttribute("name") + " | " +
-                       $c.GetAttribute("classname") + " | " +
-                       $c.GetAttribute("status") + " | " +
-                       $c.GetAttribute("time") + " | " +
-                       $c.GetAttribute("assertions") + " |`n"
+                $md += "| $($c.GetAttribute('name')) | $($c.GetAttribute('classname')) | $($c.GetAttribute('status')) | $($c.GetAttribute('time')) | $($c.GetAttribute('assertions')) |`n"
               }
               Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value $md
             }
           }
-
-  apply-deps:
-    name: Apply VIPC Dependencies
-    needs: prepare
-    runs-on: self-hosted-windows-lv
-    steps:
-      - name: Apply 32-bit VIPC
-        uses: ./.github/actions/apply-vipc
-        with:
-          minimum_supported_lv_version: "2021"
-          vip_lv_version:           "2021"
-          supported_bitness:        "32"
-          relative_path:            ${{ github.workspace }}
-          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
-
-      - name: Apply 64-bit VIPC
-        uses: ./.github/actions/apply-vipc
-        with:
-          minimum_supported_lv_version: "2021"
-          vip_lv_version:           "2021"
-          supported_bitness:        "64"
-          relative_path:            ${{ github.workspace }}
-          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
 
   build-package:
     name: Build VI Package
@@ -295,16 +308,3 @@ jobs:
                 headers: { 'content-type': 'application/octet-stream' }
               });
             }
-
-      - name: Re-enable GPG signing if disabled
-        if: ${{ always() && env.DISABLE_GPG_ON_FORKS == 'true' }}
-        shell: pwsh
-        run: |
-          if ("${{ github.repository }}" -ne "ni/labview-icon-editor") {
-            git config --global commit.gpgsign ${{
-              steps.disable_signing.outputs.old_commit_gpgsign
-            }}
-            git config --global tag.gpgsign ${{
-              steps.disable_signing.outputs.old_tag_gpgsign
-            }}
-          }
