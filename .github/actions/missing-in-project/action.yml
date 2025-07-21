@@ -1,0 +1,62 @@
+name: "missing-in-project"
+description: |
+  Runs MissingInProject.vi (living alongside action.yml) via g‑cli—
+  pointing at <project-path>/lv_icon.lvproj (default project-path is repo root).
+
+inputs:
+  lv-ver:
+    description: "LabVIEW version (e.g. '2021')"
+    required: true
+  arch:
+    description: "Bitness (e.g. '32' or '64')"
+    required: true
+  project-path:
+    description: |
+      Path to your project folder (where lv_icon.lvproj lives).
+      Defaults to the repository root.
+    required: false
+
+outputs:
+  passed:
+    description: "True if VI reported success"
+  missing-files:
+    description: "Comma-separated list of missing files"
+
+runs:
+  using: composite
+  steps:
+    - name: Determine project folder
+      id: proj
+      shell: pwsh
+      run: |
+        $pp = "${{ inputs.project-path }}"
+        if (-not $pp) { $pp = $Env:GITHUB_WORKSPACE }
+        if (-not (Test-Path $pp)) {
+          throw "Project path not found: $pp"
+        }
+        Write-Host "##[set-output name=folder]$pp"
+
+    - name: Locate MissingInProject.vi
+      id: find_vi
+      shell: pwsh
+      run: |
+        $vi = Join-Path $Env:GITHUB_ACTION_PATH 'MissingInProject.vi'
+        if (-not (Test-Path $vi)) {
+          throw "MissingInProject.vi not found at: $vi"
+        }
+        Write-Host "##[set-output name=path]$vi"
+
+    - name: Invoke VI via g‑cli & capture outputs
+      id: run_vi
+      shell: pwsh
+      run: |
+        $viPath     = "${{ steps.find_vi.outputs.path }}"
+        $projFolder = "${{ steps.proj.outputs.folder }}"
+        $lvproj     = Join-Path $projFolder 'lv_icon.lvproj'
+
+        Write-Host "▶ g‑cli --lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} `"$viPath`" `"$lvproj`""
+        $raw = & g-cli --lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} "$viPath" "$lvproj"
+        $parsed = $raw | ConvertFrom-Json
+
+        Write-Host "##[set-output name=passed]$($parsed.Passed)"
+        Write-Host "##[set-output name=missing-files]$($parsed.MissingFiles)"

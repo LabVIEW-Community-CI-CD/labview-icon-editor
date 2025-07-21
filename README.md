@@ -6,7 +6,7 @@
 
 ---
 
-## 🧭 Table of Contents (Use5rsc)
+## 🧭 Table of Contents (Users)
 - 📌 [Overview](#overview)  
 - 📦 [How to Install](#how-to-install)
 
