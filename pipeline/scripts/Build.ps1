@@ -136,14 +136,14 @@ try {
         Write-Verbose "Stack Trace: $($_.Exception.StackTrace)"
     }
 
-    # 2) Apply VIPC (32-bit)
-    Write-Verbose "Now applying VIPC for 32-bit..."
-    Execute-Script "$($AbsolutePathScripts)\ApplyVIPC.ps1" `
-        ("-MinimumSupportedLVVersion 2021 " +
-         "-VIP_LVVersion 2021 " +
-         "-SupportedBitness 32 " +
-         "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
+#    # 2) Apply VIPC (32-bit)
+#    Write-Verbose "Now applying VIPC for 32-bit..."
+#    Execute-Script "$($AbsolutePathScripts)\ApplyVIPC.ps1" `
+#        ("-MinimumSupportedLVVersion 2021 " +
+#         "-VIP_LVVersion 2021 " +
+#         "-SupportedBitness 32 " +
+#         "-RelativePath `"$RelativePath`" " +
+#         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 3) Build LV Library (32-bit)
     Write-Verbose "Building LV library (32-bit)..."
@@ -164,14 +164,14 @@ try {
     Execute-Script "$($AbsolutePathScripts)\Rename-File.ps1" `
         "-CurrentFilename `"$RelativePath\resource\plugins\lv_icon.lvlibp`" -NewFilename 'lv_icon_x86.lvlibp'"
 
-    # 6) Apply VIPC (64-bit)
-    Write-Verbose "Now applying VIPC for 64-bit..."
-    Execute-Script "$($AbsolutePathScripts)\ApplyVIPC.ps1" `
-        ("-MinimumSupportedLVVersion 2021 " +
-         "-VIP_LVVersion 2021 " +
-         "-SupportedBitness 64 " +
-         "-RelativePath `"$RelativePath`" " +
-         "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
+ #   # 6) Apply VIPC (64-bit)
+ #   Write-Verbose "Now applying VIPC for 64-bit..."
+ #   Execute-Script "$($AbsolutePathScripts)\ApplyVIPC.ps1" `
+ #       ("-MinimumSupportedLVVersion 2021 " +
+ #        "-VIP_LVVersion 2021 " +
+ #        "-SupportedBitness 64 " +
+ #        "-RelativePath `"$RelativePath`" " +
+ #        "-VIPCPath `"Tooling\deployment\runner_dependencies.vipc`"")
 
     # 7) Build LV Library (64-bit)
     Write-Verbose "Building LV library (64-bit)..."
