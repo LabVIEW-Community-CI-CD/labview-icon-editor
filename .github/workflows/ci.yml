@@ -205,18 +205,72 @@ jobs:
             -CompanyName $o \
             -AuthorName $t
 
-  upload-artifact:
-    name: Upload VIP Artifact
-    needs: build-package
-    runs-on: self-hosted-windows-lv
-    steps:
-      - name: Upload VIP Artifact
-        uses: ./.github/actions/upload-vip-artifact
+      - name: Discover .vip path
+        id: find_vip
+        shell: pwsh
+        run: |
+          $vipFile = Get-ChildItem -Path "builds/VI Package" -Filter "*.vip" -ErrorAction Stop |
+                     Select-Object -First 1
+          "vip_path=$($vipFile.FullName)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
-  tag-release:
-    name: Tag & Release VI Package
-    needs: build-package
-    runs-on: self-hosted-windows-lv
-    steps:
-      - name: Tag & Release VI Package
-        uses: ./.github/actions/tag-release
+      - name: Upload ephemeral artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ needs.version.outputs.VERSION }}
+          path: ${{ steps.find_vip.outputs.vip_path }}
+
+      - name: Create & push tag
+        if: ${{ github.event_name != 'pull_request' }}
+        shell: pwsh
+        run: |
+          $VERSION = "${{ needs.version.outputs.VERSION }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a $VERSION -m "Auto-tag by CI for $VERSION"
+          git push origin $VERSION
+
+      - name: Create GitHub Release
+        if: ${{ success() && github.event_name != 'pull_request' }}
+        id: create_release
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const versionTag = '${{ needs.version.outputs.VERSION }}';
+            const draftRelease = (process.env.DRAFT_RELEASE || 'true').toLowerCase() === 'true';
+            const useAutoNotes = (process.env.USE_AUTO_NOTES || 'true').toLowerCase() === 'true';
+            const isPrerelease = (('${{ needs.version.outputs.IS_PRERELEASE }}' || '').toLowerCase() === 'true');
+            const createParams = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: versionTag,
+              name: versionTag,
+              draft: draftRelease,
+              prerelease: isPrerelease
+            };
+            if (useAutoNotes) { createParams.generate_release_notes = true; }
+            else { createParams.body = "Reference local release notes or embed within .vip."; }
+            const response = await github.rest.repos.createRelease(createParams);
+            core.setOutput("release_id", response.data.id);
+
+      - name: Attach .vip file(s) to Release
+        if: ${{ success() && env.ATTACH_ARTIFACTS_TO_RELEASE == 'true' && github.event_name != 'pull_request' }}
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const releaseId = parseInt('${{ steps.create_release.outputs.release_id }}', 10);
+            const vipDir = path.join(process.env.GITHUB_WORKSPACE, 'builds', 'VI Package');
+            for (const vipFile of fs.readdirSync(vipDir).filter(f => f.endsWith('.vip'))) {
+              const data = fs.readFileSync(path.join(vipDir, vipFile));
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: vipFile,
+                data,
+                headers: { 'content-type': 'application/octet-stream' }
+              });
+            }
