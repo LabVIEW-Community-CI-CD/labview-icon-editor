@@ -1,0 +1,64 @@
+name: "Tag & Release VI Package"
+description: "Creates a git tag, draft GitHub release, and attaches the .vip artifact."
+runs:
+  using: "composite"
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+      with:
+        fetch-depth: 0
+        clean: true
+        persist-credentials: true
+
+    - name: Create & push tag
+      if: ${{ github.event_name != 'pull_request' }}
+      shell: pwsh
+      run: |
+        $VERSION = "${{ needs.version.outputs.VERSION }}"
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git tag -a $VERSION -m "Auto-tag by CI for $VERSION"
+        git push origin $VERSION
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const versionTag = '${{ needs.version.outputs.VERSION }}';
+          const draftRelease = (process.env.DRAFT_RELEASE || 'true').toLowerCase() === 'true';
+          const useAutoNotes = (process.env.USE_AUTO_NOTES || 'true').toLowerCase() === 'true';
+          const isPrerelease = (('${{ needs.version.outputs.IS_PRERELEASE }}' || '').toLowerCase() === 'true');
+          const params = {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            tag_name: versionTag,
+            name: versionTag,
+            draft: draftRelease,
+            prerelease: isPrerelease,
+            generate_release_notes: useAutoNotes
+          };
+          const response = await github.rest.repos.createRelease(params);
+          core.setOutput('release_id', response.data.id);
+
+    - name: Attach .vip to release
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const fs = require('fs');
+          const path = require('path');
+          const id = parseInt('${{ steps.create_release.outputs.release_id }}', 10);
+          const vipDir = path.join(process.env.GITHUB_WORKSPACE, 'builds', 'VI Package');
+          for (const file of fs.readdirSync(vipDir).filter(f => f.endsWith('.vip'))) {
+            const data = fs.readFileSync(path.join(vipDir, file));
+            await github.rest.repos.uploadReleaseAsset({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              release_id: id,
+              name: file,
+              data,
+              headers: { 'content-type': 'application/octet-stream' }
+            });
+          }
