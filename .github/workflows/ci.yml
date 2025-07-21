@@ -6,10 +6,24 @@ concurrency:
 
 on:
   push:
-    branches: [main, develop, release/*, feature/*, hotfix/*]
+    branches:
+      - main
+      - develop
+      - release/*
+      - feature/*
+      - hotfix/*
   pull_request:
-    branches: [main, develop, release/*, feature/*, hotfix/*]
-    types: [opened, synchronize, reopened, ready_for_review]
+    branches:
+      - main
+      - develop
+      - release/*
+      - feature/*
+      - hotfix/*
+    types:
+      - opened
+      - synchronize
+      - reopened
+      - ready_for_review
   workflow_dispatch:
 
 jobs:
@@ -23,7 +37,6 @@ jobs:
           fetch-depth: 0
           clean: true
           persist-credentials: true
-
       - name: Trust repo folder (Git safe.directory)
         shell: pwsh
         run: git config --global --add safe.directory "$Env:GITHUB_WORKSPACE"
@@ -49,7 +62,7 @@ jobs:
             let bump = 'none';
             if (context.event_name === 'pull_request') {
               const labels = context.payload.pull_request.labels.map(l => l.name.toLowerCase());
-              if (labels.includes('major'))  bump = 'major';
+              if (labels.includes('major')) bump = 'major';
               else if (labels.includes('minor')) bump = 'minor';
               else if (labels.includes('patch')) bump = 'patch';
             }
@@ -80,17 +93,17 @@ jobs:
           }
           $branch = $Env:GITHUB_REF -replace '^refs/heads/',''
           $suffix = ''
-          if ($branch -like 'release-alpha/*') { $suffix="alpha.$($Env:BUILD_NUMBER)" }
-          elseif ($branch -like 'release-beta/*')  { $suffix="beta.$($Env:BUILD_NUMBER)" }
-          elseif ($branch -like 'release-rc/*')    { $suffix="rc.$($Env:BUILD_NUMBER)" }
-          $ver = if ($suffix) { "v$maj.$min.$pat-$suffix-build$($Env:BUILD_NUMBER)" } else { "v$maj.$min.$pat-build$($Env:BUILD_NUMBER)" }
-          $pre = if ($suffix) { 'true' } else { 'false' }
-          Write-Host "Computed version => $ver"
-          "VERSION=$ver"             | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "MAJOR=$maj"                | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "MINOR=$min"                | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "PATCH=$pat"                | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "IS_PRERELEASE=$pre"        | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          if ($branch -like 'release-alpha/*') { $suffix = "alpha.$($Env:BUILD_NUMBER)" }
+          elseif ($branch -like 'release-beta/*')  { $suffix = "beta.$($Env:BUILD_NUMBER)" }
+          elseif ($branch -like 'release-rc/*')    { $suffix = "rc.$($Env:BUILD_NUMBER)" }
+          $version = if ($suffix) { "v$maj.$min.$pat-$suffix-build$($Env:BUILD_NUMBER)" } else { "v$maj.$min.$pat-build$($Env:BUILD_NUMBER)" }
+          $isPre  = if ($suffix) { 'true' } else { 'false' }
+          Write-Host "Computed version => $version"
+          "VERSION=$version"             | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "MAJOR=$maj"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "MINOR=$min"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "PATCH=$pat"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "IS_PRERELEASE=$isPre"        | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
   apply-deps:
     name: Apply VIPC Dependencies
@@ -117,17 +130,16 @@ jobs:
         uses: ./.github/actions/apply-vipc
         with:
           minimum_supported_lv_version: ${{ matrix['lv-version'] }}
-          vip_lv_version:           ${{ matrix['lv-version'] }}
-          supported_bitness:        ${{ matrix.bitness }}
-          relative_path:            ${{ github.workspace }}
-          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
+          vip_lv_version:               ${{ matrix['lv-version'] }}
+          supported_bitness:            ${{ matrix.bitness }}
+          relative_path:                ${{ github.workspace }}
+          scripts_folder:               "${{ github.workspace }}/pipeline/scripts"
+          vipc_path:                    "Tooling/deployment/runner_dependencies.vipc"
 
       - name: Summarize VIPC
         shell: pwsh
         run: |
-          $line = "- $(${{ matrix['lv-version'] }}) ($(${{ matrix.bitness }})-bit)"
-          Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value $line
+          Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value "- $(${{ matrix['lv-version'] }}) ($(${{ matrix.bitness }})-bit)"
 
   test:
     name: Run Unit Tests
@@ -145,48 +157,66 @@ jobs:
       - name: Run unit tests
         shell: pwsh
         working-directory: pipeline/scripts
-        run: |
-          .\RunUnitTests.ps1 -MinimumSupportedLVVersion ${{ matrix['lv-version'] }} -SupportedBitness ${{ matrix.bitness }}
+        run: .\RunUnitTests.ps1 -MinimumSupportedLVVersion ${{ matrix['lv-version'] }} -SupportedBitness ${{ matrix.bitness }}
       - name: Summarize test results
         if: always()
         shell: pwsh
         working-directory: pipeline/scripts
         run: |
-          $r=".\UnitTestReport.xml"; if (Test-Path $r) { [xml]$x=Get-Content $r; $c=$x.SelectNodes('//testcase'); if ($c) { $m="## Results`;n|Name|Class|Status|Time|Assert|`;n|---|---|---|---|---|`;n"; foreach($i in $c){$m+="|$($i.name)|$($i.classname)|$($i.status)|$($i.time)|$($i.assertions)|`;n"}; Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value $m }}
+          $r=".\UnitTestReport.xml"; if (Test-Path $r) { [xml]$x=Get-Content $r; $c=$x.SelectNodes('//testcase'); if ($c) {$m="## LabVIEW Unit Test Results`n|Name|Class|Status|Time(s)|Assertions|`n|---|---|---|---|---|`n"; foreach($i in $c){$m+="|$($i.name)|$($i.classname)|$($i.status)|$($i.time)|$($i.assertions)|`n"}; Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value $m }}
 
   build-package:
     name: Build VI Package
     needs: [version, test, apply-deps]
     runs-on: self-hosted-windows-lv
-    permissions: { contents: write, issues: read, pull-requests: read }
+    permissions:
+      contents: write
+      issues: read
+      pull-requests: read
     env:
-      MAJOR: ${{ needs.version.outputs.MAJOR }}
-      MINOR: ${{ needs.version.outputs.MINOR }}
-      PATCH: ${{ needs.version.outputs.PATCH }}
-      BUILD: ${{ needs.version.outputs.BUILD }}
-      COMMIT: ${{ github.sha }}
-      DRAFT_RELEASE: true
-      USE_AUTO_NOTES: true
+      MAJOR:                ${{ needs.version.outputs.MAJOR }}
+      MINOR:                ${{ needs.version.outputs.MINOR }}
+      PATCH:                ${{ needs.version.outputs.PATCH }}
+      BUILD:                ${{ needs.version.outputs.BUILD }}
+      COMMIT:               ${{ github.sha }}
+      DRAFT_RELEASE:        true
+      USE_AUTO_NOTES:       true
       DISABLE_GPG_ON_FORKS: false
       ATTACH_ARTIFACTS_TO_RELEASE: true
     steps:
       - name: Possibly disable GPG signing on forks
         if: ${{ env.DISABLE_GPG_ON_FORKS == 'true' }}
-        id: disable_signing
         shell: pwsh
         run: |
           if ("${{ github.repository }}" -ne "ni/labview-icon-editor") { git config --global commit.gpgsign false; git config --global tag.gpgsign false }
       - name: Build the icon editor VI package
         shell: pwsh
         run: |
-          $r=$Env:GITHUB_WORKSPACE; $s=Join-Path $r 'pipeline/scripts'; $o,$t= $Env:GITHUB_REPOSITORY -split '/'; .\pipeline\scripts\Build.ps1 -RelativePath $r -AbsolutePathToolscripts $s -Major $Env:MAJOR -Minor $Env:MINOR -Patch $Env:PATCH -Build $Env:BUILD -Commit $Env:COMMIT -CompanyName $o -AuthorName $t
+          $r=$Env:GITHUB_WORKSPACE; $s=Join-Path $r 'pipeline/scripts';
+          $o,$t = $Env:GITHUB_REPOSITORY -split '/';
+          .\pipeline\scripts\Build.ps1 \
+            -RelativePath $r \
+            -AbsolutePathScripts $s \
+            -Major $Env:MAJOR \
+            -Minor $Env:MINOR \
+            -Patch $Env:PATCH \
+            -Build $Env:BUILD \
+            -Commit $Env:COMMIT \
+            -CompanyName $o \
+            -AuthorName $t
 
   upload-artifact:
     name: Upload VIP Artifact
     needs: build-package
-    uses: ./.github/actions/upload-vip-artifact
+    runs-on: self-hosted-windows-lv
+    steps:
+      - name: Upload VIP Artifact
+        uses: ./.github/actions/upload-vip-artifact
 
   tag-release:
     name: Tag & Release VI Package
     needs: build-package
-    uses: ./.github/actions/tag-release
+    runs-on: self-hosted-windows-lv
+    steps:
+      - name: Tag & Release VI Package
+        uses: ./.github/actions/tag-release
