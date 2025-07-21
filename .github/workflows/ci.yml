@@ -118,41 +118,40 @@ jobs:
     name: Apply VIPC Dependencies
     needs: prepare
     runs-on: self-hosted-windows-lv
+    strategy:
+      matrix:
+        include:
+          - lv-version: "2021"
+            bitness: "32"
+            vipc_path: "Tooling/deployment/runner_dependencies.vipc"
+          - lv-version: "2021"
+            bitness: "64"
+            vipc_path: "Tooling/deployment/runner_dependencies.vipc"
+          - lv-version: "2023"
+            bitness: "64"
+            vipc_path: "Tooling/deployment/runner_dependencies.vipc"
     steps:
-      - name: Apply 2021 32-bit VIPC
+      - name: Checkout for ApplyVIPC
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          clean: true
+          persist-credentials: true
+
+      - name: Apply VIPC for ${{ matrix['lv-version'] }} (${{ matrix.bitness }}-bit)
         uses: ./.github/actions/apply-vipc
         with:
-          minimum_supported_lv_version: "2021"
-          vip_lv_version:           "2021"
-          supported_bitness:        "32"
+          minimum_supported_lv_version: ${{ matrix['lv-version'] }}
+          vip_lv_version:           ${{ matrix['lv-version'] }}
+          supported_bitness:        ${{ matrix.bitness }}
           relative_path:            ${{ github.workspace }}
           scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
+          vipc_path:                ${{ matrix.vipc_path }}
 
-      - name: Apply 2021 64-bit VIPC
-        uses: ./.github/actions/apply-vipc
-        with:
-          minimum_supported_lv_version: "2021"
-          vip_lv_version:           "2021"
-          supported_bitness:        "64"
-          relative_path:            ${{ github.workspace }}
-          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies.vipc"
-
-      - name: Apply 2023 64-bit VIPC
-        uses: ./.github/actions/apply-vipc
-        with:
-          minimum_supported_lv_version: "2023"
-          vip_lv_version:           "2023"
-          supported_bitness:        "64"
-          relative_path:            ${{ github.workspace }}
-          scripts_folder:           "${{ github.workspace }}/pipeline/scripts"
-          vipc_path:                "Tooling/deployment/runner_dependencies_2023.vipc"
-
-      - name: Summarize applied VIPC versions
+      - name: Summarize applied VIPCs
         shell: pwsh
         run: |
-          $summary = "Applied VIPC for: 2021 (32-bit), 2021 (64-bit), 2023 (64-bit)"
+          $summary = "Applied VIPC for: $(${{ matrix['lv-version'] }}) ($(${{ matrix.bitness }})-bit)"
           Write-Host $summary
           Add-Content -Path $Env:GITHUB_STEP_SUMMARY -Value "## VIPC Dependency Summary`n$summary"
 
