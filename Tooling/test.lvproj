@@ -13,8 +13,7 @@
 		<Property Name="server.vi.callsEnabled" Type="Bool">true</Property>
 		<Property Name="server.vi.propertiesEnabled" Type="Bool">true</Property>
 		<Property Name="specify.custom.address" Type="Bool">false</Property>
-		<Item Name="Missing in Project Tests.lvlib" Type="Library" URL="../Missing in Project Tests.lvlib"/>
-		<Item Name="MissingInProjectCLI.vi" Type="VI" URL="../MissingInProjectCLI.vi"/>
+		<Item Name="MissingInProjectCLI.vi" Type="VI" URL="../../.github/actions/missing-in-project/MissingInProjectCLI.vi"/>
 		<Item Name="Dependencies" Type="Dependencies"/>
 		<Item Name="Build Specifications" Type="Build"/>
 	</Item>
