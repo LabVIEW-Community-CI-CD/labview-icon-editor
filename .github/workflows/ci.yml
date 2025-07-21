@@ -169,10 +169,12 @@ jobs:
     name: Build VI Package
     needs: [version, test, apply-deps]
     runs-on: self-hosted-windows-lv
+
     permissions:
       contents: write
       issues: read
       pull-requests: read
+
     env:
       MAJOR:                ${{ needs.version.outputs.MAJOR }}
       MINOR:                ${{ needs.version.outputs.MINOR }}
@@ -183,27 +185,73 @@ jobs:
       USE_AUTO_NOTES:       true
       DISABLE_GPG_ON_FORKS: false
       ATTACH_ARTIFACTS_TO_RELEASE: true
+
     steps:
+      #######################################################################
+      # 0) Checkout & workspace trust
+      #######################################################################
+      - name: Checkout code (clean, full depth)
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+          clean: true
+
+      - name: Trust repository folder (Git safe.directory)
+        shell: pwsh
+        run: git config --global --add safe.directory "$Env:GITHUB_WORKSPACE"
+
+      #######################################################################
+      # 1) Optionally disable GPG signing on forks
+      #######################################################################
       - name: Possibly disable GPG signing on forks
         if: ${{ env.DISABLE_GPG_ON_FORKS == 'true' }}
+        id: disable_signing
         shell: pwsh
         run: |
-          if ("${{ github.repository }}" -ne "ni/labview-icon-editor") { git config --global commit.gpgsign false; git config --global tag.gpgsign false }
+          if ("${{ github.repository }}" -ne "ni/labview-icon-editor") {
+            $oldCommit = git config --global --get commit.gpgsign || ''
+            $oldTag    = git config --global --get tag.gpgsign    || ''
+            echo "old_commit_gpgsign=$oldCommit" >> $Env:GITHUB_OUTPUT
+            echo "old_tag_gpgsign=$oldTag"       >> $Env:GITHUB_OUTPUT
+            git config --global commit.gpgsign false
+            git config --global tag.gpgsign    false
+          }
+
+      #######################################################################
+      # 2) Build the VI package
+      #######################################################################
       - name: Build the icon editor VI package
         shell: pwsh
         run: |
-          $r=$Env:GITHUB_WORKSPACE; $s=Join-Path $r 'pipeline/scripts';
-          $o,$t = $Env:GITHUB_REPOSITORY -split '/';
-          .\pipeline\scripts\Build.ps1 \
-            -RelativePath $r \
-            -AbsolutePathScripts $s \
-            -Major $Env:MAJOR \
-            -Minor $Env:MINOR \
-            -Patch $Env:PATCH \
-            -Build $Env:BUILD \
-            -Commit $Env:COMMIT \
-            -CompanyName $o \
-            -AuthorName $t
+          $repoRoot      = $Env:GITHUB_WORKSPACE
+          $scriptsFolder = Join-Path $repoRoot 'pipeline/scripts'
+          $org, $repo    = $Env:GITHUB_REPOSITORY -split '/'
+          & .\pipeline\scripts\Build.ps1 `
+            -RelativePath        $repoRoot `
+            -AbsolutePathScripts $scriptsFolder `
+            -Major               $Env:MAJOR `
+            -Minor               $Env:MINOR `
+            -Patch               $Env:PATCH `
+            -Build               $Env:BUILD `
+            -Commit              $Env:COMMIT `
+            -CompanyName         $org `
+            -AuthorName          $repo
+
+      #######################################################################
+      # 3) Re-enable GPG if we disabled it
+      #######################################################################
+      - name: Re-enable GPG signing (if disabled)
+        if: ${{ always() && env.DISABLE_GPG_ON_FORKS == 'true' }}
+        shell: pwsh
+        run: |
+          if ("${{ github.repository }}" -ne "ni/labview-icon-editor") {
+            $oldCommit = '${{ steps.disable_signing.outputs.old_commit_gpgsign }}'
+            $oldTag    = '${{ steps.disable_signing.outputs.old_tag_gpgsign }}'
+            if ($oldCommit) { git config --global commit.gpgsign $oldCommit }
+            else           { git config --global --unset commit.gpgsign }
+            if ($oldTag)    { git config --global tag.gpgsign    $oldTag }
+            else           { git config --global --unset tag.gpgsign }
+          }
 
   upload-artifact:
     name: Upload VIP Artifact
