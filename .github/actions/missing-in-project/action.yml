@@ -1,90 +1,64 @@
 name: "Missing In Project"
 description: >
-  Calls MissinInProjectCLI.vi (side‑by‑side with this action) via g‑cli,
-  pointing at <project-path>/lv_icon.lvproj (defaults to repo root),
-  immediately failing on any non‑zero exit, and exporting:
-
-  • passed          → Boolean  
-  • missing-files   → String
+  Executes MissinInProjectCLI.vi (bundled with this action) via g‑cli to
+  verify referenced files in a LabVIEW project.  Uses an external PS1 script
+  that follows the same pattern as Close_LabVIEW.ps1.
 
 branding:
-  icon: "check-circle"
-  color: "purple"
+  icon: check-circle
+  color: purple
 
 inputs:
   lv-ver:
-    description: "LabVIEW version (e.g. '2021')"
+    description: "LabVIEW version (e.g. '2021')."
     required: true
   arch:
-    description: "Bitness (32 or 64)"
+    description: "Bitness (32 or 64)."
     required: true
-  project-path:
-    description: >-
-      Path containing lv_icon.lvproj.  
-      Defaults to the repository root.
+  project-file:
+    description: >
+      Full or relative path to the *.lvproj* to inspect.
+      Defaults to `lv_icon.lvproj` in the repository root.
     required: false
+    default: lv_icon.lvproj
 
 outputs:
   passed:
-    description: "True if VI reported success"
+    description: "True if VI reported success."
+    value: ${{ steps.run_vi.outputs.passed }}
   missing-files:
-    description: "Comma‑separated list of missing files"
+    description: "Comma‑separated list of missing files."
+    value: ${{ steps.run_vi.outputs.missing-files }}
 
 runs:
   using: composite
   steps:
 
-    - name: Resolve project folder
-      id: resolve
+    # ------------------------------------------------------------
+    # 1) Resolve the project‑file path
+    # ------------------------------------------------------------
+    - id: resolve
+      name: Resolve project file
       shell: pwsh
       run: |
-        $proj = '${{ inputs.project-path }}'
-        if (-not $proj) { $proj = $Env:GITHUB_WORKSPACE }
+        $proj = '${{ inputs.project-file }}'
+        if (-not [System.IO.Path]::IsPathRooted($proj)) {
+          $proj = Join-Path $Env:GITHUB_WORKSPACE $proj
+        }
         if (-not (Test-Path $proj)) {
-          throw "Project path not found: $proj"
+          throw "Project file not found: $proj"
         }
-        echo "proj=$proj" >> $GITHUB_OUTPUT
+        echo "projFile=$proj" >> $env:GITHUB_OUTPUT
+        Write-Host "ℹ️  Using project file: $proj"
 
-    - name: Locate MissingInProjectCLI.vi
-      id: locate
+    # ------------------------------------------------------------
+    # 2) Invoke the PowerShell helper (pattern matches Close_LabVIEW.ps1)
+    # ------------------------------------------------------------
+    - id: run_vi
+      name: Execute VI via g‑cli (PS1 wrapper)
       shell: pwsh
       run: |
-        $vi = Join-Path $Env:GITHUB_ACTION_PATH 'MissinInProjectCLI.vi'
-        if (-not (Test-Path $vi)) {
-          throw "MissinInProjectCLI.vi not found at: $vi"
-        }
-        echo "viPath=$vi" >> $GITHUB_OUTPUT
-
-    - name: Execute VI via g‑cli
-      id: run_vi
-      shell: pwsh
-      run: |
-        function Exec {
-          param($cmd, $args)
-          Write-Host "▶ $cmd $args"
-          $out = & $cmd $args
-          if ($LASTEXITCODE -ne 0) {
-            throw "$cmd failed with exit code $LASTEXITCODE"
-          }
-          return $out
-        }
-
-        $proj   = '${{ steps.resolve.outputs.proj }}'
-        $lvproj = Join-Path $proj 'lv_icon.lvproj'
-        if (-not (Test-Path $lvproj)) {
-          throw "lv_icon.lvproj not found at: $lvproj"
-        }
-
-        $vi     = '${{ steps.locate.outputs.viPath }}'
-        $args   = "--lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} `"$vi`" `"$lvproj`""
-
-        $raw    = Exec 'g-cli' $args
-        $parsed = $raw | ConvertFrom-Json
-
-        echo "passed=$($parsed.Passed)"       >> $GITHUB_OUTPUT
-        echo "missing-files=$($parsed.MissingFiles)" >> $GITHUB_OUTPUT
-
-        Write-Host "✅ Passed = $($parsed.Passed)"
-        if (-not $parsed.Passed) {
-          Write-Host "📋 Missing files:`n$($parsed.MissingFiles)"
-        }
+        & "$Env:GITHUB_ACTION_PATH\Invoke-MissingInProjectCLI.ps1" `
+          -LVVersion  "${{ inputs.lv-ver }}" `
+          -Arch       "${{ inputs.arch }}" `
+          -ProjectFile "${{ steps.resolve.outputs.projFile }}"
