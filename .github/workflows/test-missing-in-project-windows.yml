@@ -4,6 +4,7 @@ on:
   pull_request:
     branches: [main]
 
+
 jobs:
   missing-in-project-check:
     runs-on: self-hosted-windows-lv
@@ -23,15 +24,16 @@ jobs:
         id: find_proj
         shell: pwsh
         run: |
-          # Find the first .lvproj and output its FULL path
-          $proj = Get-ChildItem -Path $PWD -Filter *.lvproj `
-                    | Select-Object -First 1 -ExpandProperty FullName
-          if (-not $proj) {
+          # Grab only the file name (relative) so the composite/action logic will join it
+          $projName = Get-ChildItem -Path $PWD -Filter *.lvproj `
+                       | Select-Object -First 1 -ExpandProperty Name
+          if (-not $projName) {
             Write-Error 'No .lvproj file found in repo root'
             exit 1
           }
-          Write-Host "🔍 Found project file: $proj"
-          echo "project_file=$proj" >> $GITHUB_OUTPUT
+          Write-Host "🔍 Found project file: $projName"
+          # Export the _relative_ name
+          echo "project_file=$projName" >> $GITHUB_OUTPUT
 
       - name: Missing In Project
         id: mip
@@ -48,15 +50,15 @@ jobs:
         env:
           PROJ_FILE: ${{ steps.find_proj.outputs.project_file }}
         run: |
-          # Echo the exact .lvproj that was used
-          echo "ℹ️  Using project file: $env:PROJ_FILE" >> $GITHUB_STEP_SUMMARY
+          # Reconstruct absolute path for visibility
+          $fullPath = Join-Path $PWD $env:PROJ_FILE
+          echo "ℹ️  Using project file: $fullPath" >> $GITHUB_STEP_SUMMARY
 
           # Dump the binary‑generated missing‑files.txt if it exists
-          $artifact = 'missing-files.txt'
-          if (Test-Path $artifact) {
+          if (Test-Path missing-files.txt) {
             echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            Get-Content $artifact -Raw | ForEach-Object { echo $_ } >> $GITHUB_STEP_SUMMARY
+            Get-Content missing-files.txt -Raw | ForEach-Object { echo $_ } >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           } else {
             echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
