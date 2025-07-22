@@ -31,13 +31,12 @@ jobs:
             exit 1
           }
           Write-Host "🔍 Found project file: $proj"
-          "project_file=$proj" >> $GITHUB_OUTPUT
+          "project_file=$proj" >> $env:GITHUB_OUTPUT
 
       # 2️⃣  Pass that exact file path to the composite action
       - name: Missing In Project
         id: mip
-        uses: ./.github/actions/missing-in-project        # see Section 2
-        continue-on-error: true
+        uses: ./.github/actions/missing-in-project
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
