@@ -21,7 +21,7 @@ jobs:
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
-          project-file: my_project.lvproj    # ← here you pass your .lvproj
+          project-file: lv_icon.lvproj    # ← here you pass your .lvproj
 
       - name: Fail on missing files
         if: steps.mip.outputs.passed != 'True'
