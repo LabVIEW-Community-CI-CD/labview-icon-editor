@@ -1,7 +1,3 @@
-#Requires -Version 7.0
-[CmdletBinding()]
-$ErrorActionPreference = 'Stop'
-
 <#
 .SYNOPSIS
     Runs MissingInProjectCLI.vi via G‑CLI and streams the VI’s output.
@@ -19,13 +15,14 @@ $ErrorActionPreference = 'Stop'
     • Leaves exit status in $LASTEXITCODE for the caller.
     • Does NOT call 'exit' to avoid terminating a parent session.
 #>
-
+#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$LVVersion,
     [Parameter(Mandatory)][ValidateSet('32','64')][string]$Arch,
     [Parameter(Mandatory)][string]$ProjectFile
 )
-
+$ErrorActionPreference = 'Stop'
 Write-Host "ℹ️  [GCLI] Starting Missing‑in‑Project check ..."
 
 # ---------- sanity checks ----------
