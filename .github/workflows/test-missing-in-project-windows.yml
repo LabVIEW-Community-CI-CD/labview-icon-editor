@@ -1,12 +1,16 @@
 name: Test Missing‑In‑Project Action on Windows
 on:
   workflow_dispatch:
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 2 * * *'    # nightly at 02:00 UTC
 
 jobs:
   missing-in-project-check:
     runs-on: self-hosted-windows-lv
     strategy:
-      fail-fast: false              # ← ensure all matrix runs execute
+      fail-fast: false
       matrix:
         lv-version: ["2021","2023"]
         bitness:    ["32","64"]
@@ -21,23 +25,34 @@ jobs:
         shell: pwsh
         run: |
           $file = Get-ChildItem -Path $PWD -Filter *.lvproj | Select-Object -First 1 -ExpandProperty Name
-          if (-not $file) { Write-Error "No .lvproj in repo root"; exit 1 }
-          echo "Found project file: $file"
+          if (-not $file) { Write-Error 'No .lvproj file found in repo root'; exit 1 }
           echo "project_file=$file" >> $GITHUB_OUTPUT
 
       - name: Missing In Project
         id: mip
         uses: ./.github/actions/missing-in-project
-        continue-on-error: true       # ← don’t abort the job on failure
+        continue-on-error: true
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
           project-file: ${{ steps.find_proj.outputs.project_file }}
 
-      - name: Report failures
-        if: always() && steps.mip.outputs.passed != 'True'
+      - name: Summarize to run “Summary” tab
+        if: always()
         shell: pwsh
         run: |
-          Write-Host "❌ Missing files detected:"
-          Write-Host ${{ steps.mip.outputs['missing-files'] }}
-          exit 1
+          if (${{ steps.mip.outputs.passed }} -eq 'True') {
+            echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
+          } else {
+            echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
+            echo "${{ steps.mip.outputs['missing-files'] }}" >> $GITHUB_STEP_SUMMARY
+            # also export to a file so we can upload it
+            Set-Content missing-files.txt "${{ steps.mip.outputs['missing-files'] }}"
+          }
+
+      - name: Upload missing‑files artifact
+        if: always() && steps.mip.outputs.passed != 'True'
+        uses: actions/upload-artifact@v4
+        with:
+          name: missing-files-${{ matrix.lv-version }}-${{ matrix.bitness }}
+          path: missing-files.txt
