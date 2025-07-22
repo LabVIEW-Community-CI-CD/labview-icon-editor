@@ -6,6 +6,7 @@ jobs:
   missing-in-project-check:
     runs-on: self-hosted-windows-lv
     strategy:
+      fail-fast: false              # ← ensure all matrix runs execute
       matrix:
         lv-version: ["2021","2023"]
         bitness:    ["32","64"]
@@ -19,28 +20,24 @@ jobs:
         id: find_proj
         shell: pwsh
         run: |
-          # Look for the first .lvproj in repo root
           $file = Get-ChildItem -Path $PWD -Filter *.lvproj | Select-Object -First 1 -ExpandProperty Name
-          if (-not $file) {
-            Write-Error "No .lvproj file found in the repository root."
-            exit 1
-          }
-          Write-Host "Found project file: $file"
-          # Set it as an output for later steps
-          "project_file=$file" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+          if (-not $file) { Write-Error "No .lvproj in repo root"; exit 1 }
+          echo "Found project file: $file"
+          echo "project_file=$file" >> $GITHUB_OUTPUT
 
       - name: Missing In Project
         id: mip
         uses: ./.github/actions/missing-in-project
+        continue-on-error: true       # ← don’t abort the job on failure
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
           project-file: ${{ steps.find_proj.outputs.project_file }}
 
-      - name: Fail on missing files
-        if: steps.mip.outputs.passed != 'True'
+      - name: Report failures
+        if: always() && steps.mip.outputs.passed != 'True'
         shell: pwsh
         run: |
-          Write-Host "❌ Missing files:"
+          Write-Host "❌ Missing files detected:"
           Write-Host ${{ steps.mip.outputs['missing-files'] }}
           exit 1
