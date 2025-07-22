@@ -10,7 +10,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        lv-version: ["2021","2023"]
+        lv-version: ["2021"]
         bitness:    ["32","64"]
 
     steps:
