@@ -23,14 +23,15 @@ jobs:
         id: find_proj
         shell: pwsh
         run: |
-          # Grab the first .lvproj in the repo root
-          $file = Get-ChildItem -Path $PWD -Filter *.lvproj `
-                    | Select-Object -First 1 -ExpandProperty Name
-          if (-not $file) {
+          # Find the first .lvproj and output its FULL path
+          $proj = Get-ChildItem -Path $PWD -Filter *.lvproj `
+                    | Select-Object -First 1 -ExpandProperty FullName
+          if (-not $proj) {
             Write-Error 'No .lvproj file found in repo root'
             exit 1
           }
-          echo "project_file=$file" >> $GITHUB_OUTPUT
+          Write-Host "🔍 Found project file: $proj"
+          echo "project_file=$proj" >> $GITHUB_OUTPUT
 
       - name: Missing In Project
         id: mip
@@ -44,13 +45,13 @@ jobs:
       - name: Summarize to run “Summary” tab
         if: always()
         shell: pwsh
+        env:
+          PROJ_FILE: ${{ steps.find_proj.outputs.project_file }}
         run: |
-          # Build and print the absolute .lvproj path
-          $projName = '${{ steps.find_proj.outputs.project_file }}'
-          $projPath = Join-Path $PWD $projName
-          echo "ℹ️  Project file: $projPath" >> $GITHUB_STEP_SUMMARY
+          # Echo the exact .lvproj that was used
+          echo "ℹ️  Using project file: $env:PROJ_FILE" >> $GITHUB_STEP_SUMMARY
 
-          # Dump pass/fail + missing-files.txt into the Summary
+          # Dump the binary‑generated missing‑files.txt if it exists
           $artifact = 'missing-files.txt'
           if (Test-Path $artifact) {
             echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
