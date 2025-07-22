@@ -15,13 +15,27 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Find .lvproj file
+        id: find_proj
+        shell: pwsh
+        run: |
+          # Look for the first .lvproj in repo root
+          $file = Get-ChildItem -Path $PWD -Filter *.lvproj | Select-Object -First 1 -ExpandProperty Name
+          if (-not $file) {
+            Write-Error "No .lvproj file found in the repository root."
+            exit 1
+          }
+          Write-Host "Found project file: $file"
+          # Set it as an output for later steps
+          "project_file=$file" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
+
       - name: Missing In Project
         id: mip
         uses: ./.github/actions/missing-in-project
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
-          project-file: lv_icon.lvproj    # ← here you pass your .lvproj
+          project-file: ${{ steps.find_proj.outputs.project_file }}
 
       - name: Fail on missing files
         if: steps.mip.outputs.passed != 'True'
