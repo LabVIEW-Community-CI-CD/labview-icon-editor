@@ -1,88 +1,57 @@
 <#
 .SYNOPSIS
-    Run MissinInProjectCLI.vi via g‑cli and surface the result to GitHub.
+    Checks for missing items in a LabVIEW project using g-cli.
 
-.PARAMETER LVVersion
-    LabVIEW version to pass to g‑cli (--lv-ver).
+.DESCRIPTION
+    This script locates its own folder, builds the path to MissingInProjectCLI.vi,
+    then invokes g-cli to update Localhost.LibraryPaths based on your project INI.
 
-.PARAMETER Arch
-    Bitness to pass to g‑cli (--arch).
-
-.PARAMETER ProjectFile
-    Full path to the .lvproj file; default is handled by the caller.
-
-.NOTES
-    - Mimics the pattern used in Close_LabVIEW.ps1 (Invoke‑Expression + exit‑code check).
-    - Outputs two GitHub step outputs: passed, missing-files.
+.EXAMPLE
+    # From your repo root, assuming this script lives in .\scripts\
+    .\scripts\Invoke-MissingInProject.ps1 `
+        -LVVersion "2022" `
+        -SupportedBitness "64" `
+        -ProjectPath "C:\Repos\MyLabVIEWProject"
 #>
 
 param(
-    [Parameter(Mandatory = $true)]
-    [string]$LVVersion,
-
-    [Parameter(Mandatory = $true)]
-    [string]$Arch,
-
-    [Parameter(Mandatory = $true)]
-    [string]$ProjectFile
+    [string]$LVVersion,         # LabVIEW version to target (e.g. "2021", "2022")
+    [string]$SupportedBitness,  # CPU bitness ("32" or "64")
+    [string]$ProjectPath        # Root folder of your LabVIEW project
 )
 
-# -------------------------------------------------------------------------
-# Validate paths
-# -------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# 1) Determine the directory where this script is located.
+#    $MyInvocation.MyCommand.Definition gives the path to the running .ps1 file.
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Definition
-$VIPath    = Join-Path $ScriptDir 'MissinInProjectCLI.vi'
 
-if (-not (Test-Path $VIPath)) {
-    Write-Error "VI not found at $VIPath."
-    exit 2
-}
+# 2) Construct the full path to the MissingInProjectCLI.vi file under the script folder.
+$VIPath = Join-Path $ScriptDir '.\MissingInProjectCLI.vi'
 
-if (-not (Test-Path $ProjectFile)) {
-    Write-Error "Project file not found at $ProjectFile."
-    exit 3
-}
-
-# -------------------------------------------------------------------------
-# Build and execute the g‑cli command
-# -------------------------------------------------------------------------
-$command = @"
-g-cli --lv-ver $LVVersion --arch $Arch "`"$VIPath`"" "`"$ProjectFile`""
+# 3) Prepare the g-cli command, wrapping paths in quotes to handle spaces.
+$gcliCmd = @"
+g-cli --lv-ver $LVVersion --arch $SupportedBitness -v "$VIPath" -- "$ProjectPath"
 "@
 
-Write-Output "Executing:"
-Write-Output $command
+# 4) Output the exact command for logging/debugging purposes.
+Write-Output "Executing command:"
+Write-Output $gcliCmd
 
+# 5) Invoke the command and handle errors.
 try {
-    $json = Invoke-Expression $command
+    Invoke-Expression $gcliCmd
 
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error "g‑cli exited with code $LASTEXITCODE."
+    # 6) Check g-cli's exit code: 0 = success
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "✅ Successfully updated Localhost.LibraryPaths from INI file."
+    }
+    else {
+        Write-Error "❌ g-cli failed with exit code $LASTEXITCODE"
         exit $LASTEXITCODE
     }
-
-    $result = $json | ConvertFrom-Json
 }
 catch {
-    Write-Error "Failed to run g‑cli or parse JSON output."
-    exit 4
-}
-
-# -------------------------------------------------------------------------
-# Surface results to GitHub Actions
-# -------------------------------------------------------------------------
-$passed  = [string]$result.Passed
-$missing = $result.MissingFiles
-
-if ($Env:GITHUB_OUTPUT) {
-    "passed=$passed"            | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-    "missing-files=$missing"    | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-}
-
-if (-not $result.Passed) {
-    Write-Error "Missing files detected:`n$missing"
+    # 7) Catch any unexpected exceptions and report them.
+    Write-Error "❌ Exception while running g-cli: $_"
     exit 1
 }
-
-Write-Host "✅ All files present."
-exit 0
