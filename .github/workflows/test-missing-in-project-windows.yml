@@ -4,7 +4,6 @@ on:
   pull_request:
     branches: [main]
 
-
 jobs:
   missing-in-project-check:
     runs-on: self-hosted-windows-lv
@@ -20,50 +19,50 @@ jobs:
         with:
           fetch-depth: 0
 
+      # 1️⃣  Detect the first *.lvproj and expose its **absolute path**
       - name: Find .lvproj file
         id: find_proj
         shell: pwsh
         run: |
-          # Grab only the file name (relative) so the composite/action logic will join it
-          $projName = Get-ChildItem -Path $PWD -Filter *.lvproj `
-                       | Select-Object -First 1 -ExpandProperty Name
-          if (-not $projName) {
+          $proj = Get-ChildItem -Path $PWD -Filter *.lvproj |
+                  Select-Object -First 1 -ExpandProperty FullName
+          if (-not $proj) {
             Write-Error 'No .lvproj file found in repo root'
             exit 1
           }
-          Write-Host "🔍 Found project file: $projName"
-          # Export the _relative_ name
-          echo "project_file=$projName" >> $GITHUB_OUTPUT
+          Write-Host "🔍 Found project file: $proj"
+          "project_file=$proj" >> $GITHUB_OUTPUT
 
+      # 2️⃣  Pass that exact file path to the composite action
       - name: Missing In Project
         id: mip
-        uses: ./.github/actions/missing-in-project
+        uses: ./.github/actions/missing-in-project        # see Section 2
         continue-on-error: true
         with:
           lv-ver:       ${{ matrix.lv-version }}
           arch:         ${{ matrix.bitness }}
           project-file: ${{ steps.find_proj.outputs.project_file }}
 
+      # 3️⃣  Surface results in the “Summary” tab
       - name: Summarize to run “Summary” tab
         if: always()
         shell: pwsh
         env:
           PROJ_FILE: ${{ steps.find_proj.outputs.project_file }}
         run: |
-          # Reconstruct absolute path for visibility
-          $fullPath = Join-Path $PWD $env:PROJ_FILE
-          echo "ℹ️  Using project file: $fullPath" >> $GITHUB_STEP_SUMMARY
+          echo "ℹ️  Using project file: $env:PROJ_FILE" >> $GITHUB_STEP_SUMMARY
 
-          # Dump the binary‑generated missing‑files.txt if it exists
-          if (Test-Path missing-files.txt) {
+          $artifact = 'missing-files.txt'
+          if (Test-Path $artifact) {
             echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            Get-Content missing-files.txt -Raw | ForEach-Object { echo $_ } >> $GITHUB_STEP_SUMMARY
+            Get-Content $artifact -Raw | ForEach-Object { echo $_ } >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           } else {
             echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
           }
 
+      # 4️⃣  Keep the binary‑generated list as a downloadable artifact
       - name: Upload missing‑files artifact
         if: always() && steps.mip.outputs.passed != 'True'
         uses: actions/upload-artifact@v4
