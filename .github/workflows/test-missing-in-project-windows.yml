@@ -1,0 +1,45 @@
+name: Test Missing‑In‑Project PS1 on Windows
+on:
+  workflow_dispatch:
+
+jobs:
+  test-missing-in-project:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Create dummy lv_icon.lvproj
+        shell: pwsh
+        run: |
+          New-Item -ItemType File -Path "$Env:GITHUB_WORKSPACE\lv_icon.lvproj" -Force | Out-Null
+          Set-Content -Path "$Env:GITHUB_WORKSPACE\lv_icon.lvproj" -Value '<Project/>'
+
+      - name: Create dummy VI in action folder
+        shell: pwsh
+        run: |
+          $action = Join-Path $Env:GITHUB_WORKSPACE '.github\actions\missing-in-project'
+          if (-not (Test-Path $action)) { New-Item -ItemType Directory -Path $action -Force | Out-Null }
+          $vi = Join-Path $action 'MissinInProjectCLI.vi'
+          New-Item -ItemType File -Path $vi -Force | Out-Null
+          Set-Content -Path $vi -Value '<VI/>'
+
+      - name: Stub g-cli
+        shell: pwsh
+        run: |
+          # Create a batch shim so 'g-cli' is on PATH
+          Set-Content -LiteralPath "$Env:GITHUB_WORKSPACE\g-cli.cmd" -Value "@echo off`necho {""Passed"": true, ""MissingFiles"": """"}" -Encoding ASCII
+          $Env:PATH = "$Env:GITHUB_WORKSPACE;$Env:PATH"
+
+      - name: Run Missing‑In‑Project PS1
+        shell: pwsh
+        run: |
+          .\pipeline\scripts\Invoke-MissingInProject.ps1 `
+            -LVVersion 2021 `
+            -Bitness   64
+
+      - name: Success!
+        run: echo "🎉 PS1 ran without error"
