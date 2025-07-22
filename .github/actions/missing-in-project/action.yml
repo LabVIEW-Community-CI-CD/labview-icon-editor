@@ -1,18 +1,26 @@
-name: "missing-in-project"
-description: |
-  Runs MissingInProject.vi (living alongside action.yml) via g‑cli—
-  pointing at <project-path>/lv_icon.lvproj (default project-path is repo root).
+name: "Missing In Project"
+description: >
+  Calls MissinInProjectCLI.vi (side‑by‑side with this action) via g‑cli,
+  pointing at <project-path>/lv_icon.lvproj (defaults to repo root),
+  immediately failing on any non‑zero exit, and exporting:
+
+  • passed          → Boolean  
+  • missing-files   → String
+
+branding:
+  icon: "check-circle"
+  color: "purple"
 
 inputs:
   lv-ver:
     description: "LabVIEW version (e.g. '2021')"
     required: true
   arch:
-    description: "Bitness (e.g. '32' or '64')"
+    description: "Bitness (32 or 64)"
     required: true
   project-path:
-    description: |
-      Path to your project folder (where lv_icon.lvproj lives).
+    description: >-
+      Path containing lv_icon.lvproj.  
       Defaults to the repository root.
     required: false
 
@@ -20,43 +28,63 @@ outputs:
   passed:
     description: "True if VI reported success"
   missing-files:
-    description: "Comma-separated list of missing files"
+    description: "Comma‑separated list of missing files"
 
 runs:
   using: composite
   steps:
-    - name: Determine project folder
-      id: proj
-      shell: pwsh
-      run: |
-        $pp = "${{ inputs.project-path }}"
-        if (-not $pp) { $pp = $Env:GITHUB_WORKSPACE }
-        if (-not (Test-Path $pp)) {
-          throw "Project path not found: $pp"
-        }
-        Write-Host "##[set-output name=folder]$pp"
 
-    - name: Locate MissingInProject.vi
-      id: find_vi
+    - name: Resolve project folder
+      id: resolve
       shell: pwsh
       run: |
-        $vi = Join-Path $Env:GITHUB_ACTION_PATH 'MissingInProject.vi'
+        $proj = '${{ inputs.project-path }}'
+        if (-not $proj) { $proj = $Env:GITHUB_WORKSPACE }
+        if (-not (Test-Path $proj)) {
+          throw "Project path not found: $proj"
+        }
+        echo "proj=$proj" >> $GITHUB_OUTPUT
+
+    - name: Locate MissingInProjectCLI.vi
+      id: locate
+      shell: pwsh
+      run: |
+        $vi = Join-Path $Env:GITHUB_ACTION_PATH 'MissinInProjectCLI.vi'
         if (-not (Test-Path $vi)) {
-          throw "MissingInProject.vi not found at: $vi"
+          throw "MissinInProjectCLI.vi not found at: $vi"
         }
-        Write-Host "##[set-output name=path]$vi"
+        echo "viPath=$vi" >> $GITHUB_OUTPUT
 
-    - name: Invoke VI via g‑cli & capture outputs
+    - name: Execute VI via g‑cli
       id: run_vi
       shell: pwsh
       run: |
-        $viPath     = "${{ steps.find_vi.outputs.path }}"
-        $projFolder = "${{ steps.proj.outputs.folder }}"
-        $lvproj     = Join-Path $projFolder 'lv_icon.lvproj'
+        function Exec {
+          param($cmd, $args)
+          Write-Host "▶ $cmd $args"
+          $out = & $cmd $args
+          if ($LASTEXITCODE -ne 0) {
+            throw "$cmd failed with exit code $LASTEXITCODE"
+          }
+          return $out
+        }
 
-        Write-Host "▶ g‑cli --lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} `"$viPath`" `"$lvproj`""
-        $raw = & g-cli --lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} "$viPath" "$lvproj"
+        $proj   = '${{ steps.resolve.outputs.proj }}'
+        $lvproj = Join-Path $proj 'lv_icon.lvproj'
+        if (-not (Test-Path $lvproj)) {
+          throw "lv_icon.lvproj not found at: $lvproj"
+        }
+
+        $vi     = '${{ steps.locate.outputs.viPath }}'
+        $args   = "--lv-ver ${{ inputs.lv-ver }} --arch ${{ inputs.arch }} `"$vi`" `"$lvproj`""
+
+        $raw    = Exec 'g-cli' $args
         $parsed = $raw | ConvertFrom-Json
 
-        Write-Host "##[set-output name=passed]$($parsed.Passed)"
-        Write-Host "##[set-output name=missing-files]$($parsed.MissingFiles)"
+        echo "passed=$($parsed.Passed)"       >> $GITHUB_OUTPUT
+        echo "missing-files=$($parsed.MissingFiles)" >> $GITHUB_OUTPUT
+
+        Write-Host "✅ Passed = $($parsed.Passed)"
+        if (-not $parsed.Passed) {
+          Write-Host "📋 Missing files:`n$($parsed.MissingFiles)"
+        }
