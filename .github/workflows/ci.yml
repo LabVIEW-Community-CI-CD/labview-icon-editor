@@ -46,12 +46,12 @@ jobs:
     needs: prepare
     runs-on: self-hosted-windows-lv
     outputs:
-      VERSION:        ${{ steps.next_version.outputs.VERSION }}
-      MAJOR:          ${{ steps.next_version.outputs.MAJOR }}
-      MINOR:          ${{ steps.next_version.outputs.MINOR }}
-      PATCH:          ${{ steps.next_version.outputs.PATCH }}
-      BUILD:          ${{ steps.inc_build.outputs.new_build_number }}
-      IS_PRERELEASE:  ${{ steps.next_version.outputs.IS_PRERELEASE }}
+      VERSION:       ${{ steps.next_version.outputs.VERSION }}
+      MAJOR:         ${{ steps.next_version.outputs.MAJOR }}
+      MINOR:         ${{ steps.next_version.outputs.MINOR }}
+      PATCH:         ${{ steps.next_version.outputs.PATCH }}
+      BUILD:         ${{ steps.inc_build.outputs.new_build_number }}
+      IS_PRERELEASE: ${{ steps.next_version.outputs.IS_PRERELEASE }}
     steps:
       - name: Determine bump type
         id: bump_type
@@ -99,11 +99,11 @@ jobs:
           $version = if ($suffix) { "v$maj.$min.$pat-$suffix-build$($Env:BUILD_NUMBER)" } else { "v$maj.$min.$pat-build$($Env:BUILD_NUMBER)" }
           $isPre  = if ($suffix) { 'true' } else { 'false' }
           Write-Host "Computed version => $version"
-          "VERSION=$version"             | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "MAJOR=$maj"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "MINOR=$min"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "PATCH=$pat"                  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-          "IS_PRERELEASE=$isPre"        | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "VERSION=$version"      | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "MAJOR=$maj"            | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "MINOR=$min"            | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "PATCH=$pat"            | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
+          "IS_PRERELEASE=$isPre"  | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
 
   apply-deps:
     name: Apply VIPC Dependencies
@@ -156,7 +156,6 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 1️⃣ Detect the first *.lvproj and expose its absolute path
       - name: Find .lvproj file
         id: find_proj
         shell: pwsh
@@ -170,7 +169,6 @@ jobs:
           Write-Host "🔍 Found project file: $proj"
           "project_file=$proj" >> $env:GITHUB_OUTPUT
 
-      # 2️⃣ Pass that exact file path to the composite action
       - name: Missing In Project
         id: mip
         uses: ./.github/actions/missing-in-project
@@ -179,7 +177,6 @@ jobs:
           arch:         ${{ matrix.bitness }}
           project-file: ${{ steps.find_proj.outputs.project_file }}
 
-      # 3️⃣ Surface results in the “Summary” tab
       - name: Summarize to run “Summary” tab
         if: always()
         shell: pwsh
@@ -198,7 +195,6 @@ jobs:
             echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
           }
 
-      # 4️⃣ Keep the binary‑generated list as a downloadable artifact
       - name: Upload missing‑files artifact
         if: always() && steps.mip.outputs.passed != 'True'
         uses: actions/upload-artifact@v4
@@ -213,7 +209,7 @@ jobs:
     strategy:
       matrix:
         os: [windows]
-        'lv-version': ["2021"]
+        lv-version: ["2021"]
         bitness: ["32","64"]
       fail-fast: false
     steps:
@@ -243,18 +239,18 @@ jobs:
     needs: [version, test, apply-deps]
     runs-on: self-hosted-windows-lv
     permissions:
-      contents: write
-      issues: read
-      pull-requests: read
+      contents:       write
+      issues:         read
+      pull-requests:  read
     env:
-      MAJOR:                   ${{ needs.version.outputs.MAJOR }}
-      MINOR:                   ${{ needs.version.outputs.MINOR }}
-      PATCH:                   ${{ needs.version.outputs.PATCH }}
-      BUILD:                   ${{ needs.version.outputs.BUILD }}
-      COMMIT:                  ${{ github.sha }}
-      DRAFT_RELEASE:           true
-      USE_AUTO_NOTES:          true
-      DISABLE_GPG_ON_FORKS:    false
+      MAJOR:                     ${{ needs.version.outputs.MAJOR }}
+      MINOR:                     ${{ needs.version.outputs.MINOR }}
+      PATCH:                     ${{ needs.version.outputs.PATCH }}
+      BUILD:                     ${{ needs.version.outputs.BUILD }}
+      COMMIT:                    ${{ github.sha }}
+      DRAFT_RELEASE:             true
+      USE_AUTO_NOTES:            true
+      DISABLE_GPG_ON_FORKS:      false
       ATTACH_ARTIFACTS_TO_RELEASE: true
     steps:
       - name: Checkout code (clean, full depth)
@@ -298,33 +294,6 @@ jobs:
             -CompanyName         $org `
             -AuthorName          $repo
 
-      - name: Re-enable GPG signing (if disabled)
-        if: ${{ always() && env.DISABLE_GPG_ON_FORKS == 'true' }}
-        shell: pwsh
-        run: |
-          if ("${{ github.repository }}" -ne "ni/labview-icon-editor") {
-            $oldCommit = '${{ steps.disable_signing.outputs.old_commit_gpgsign }}'
-            $oldTag    = '${{ steps.disable_signing.outputs.old_tag_gpgsign }}'
-            if ($oldCommit) { git config --global commit.gpgsign $oldCommit }
-            else           { git config --global --unset commit.gpgsign }
-            if ($oldTag)    { git config --global tag.gpgsign    $oldTag }
-            else           { git config --global --unset tag.gpgsign }
-          }
-
-      - name: Discover .vip path
-        id: find_vip
-        shell: pwsh
-        run: |
-          $vipFile = Get-ChildItem -Path "builds/VI Package" -Filter "*.vip" -ErrorAction Stop |
-                     Select-Object -First 1
-          "vip_path=$($vipFile.FullName)" | Out-File -FilePath $Env:GITHUB_OUTPUT -Append
-
-      - name: Upload ephemeral artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ needs.version.outputs.VERSION }}
-          path: ${{ steps.find_vip.outputs.vip_path }}
-
       - name: Create & push tag
         if: ${{ github.event_name != 'pull_request' }}
         shell: pwsh
@@ -341,42 +310,42 @@ jobs:
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const versionTag = '${{ needs.version.outputs.VERSION }}';
-          const draftRelease = (process.env.DRAFT_RELEASE || 'true').toLowerCase() === 'true';
-          const useAutoNotes = (process.env.USE_AUTO_NOTES || 'true').toLowerCase() === 'true';
-          const isPrerelease = (('${{ needs.version.outputs.IS_PRERELEASE }}' || '').toLowerCase() === 'true');
-          const createParams = {
-            owner: context.repo.owner,
-            repo: context.repo.repo,
-            tag_name: versionTag,
-            name: versionTag,
-            draft: draftRelease,
-            prerelease: isPrerelease
-          };
-          if (useAutoNotes) { createParams.generate_release_notes = true; }
-          else { createParams.body = "Reference local release notes or embed within .vip."; }
-          const response = await github.rest.repos.createRelease(createParams);
-          core.setOutput("release_id", response.data.id);
+          script: |
+            const versionTag = '${{ needs.version.outputs.VERSION }}';
+            const draftRelease = (process.env.DRAFT_RELEASE || 'true').toLowerCase() === 'true';
+            const useAutoNotes = (process.env.USE_AUTO_NOTES || 'true').toLowerCase() === 'true';
+            const isPrerelease = (('${{ needs.version.outputs.IS_PRERELEASE }}' || '').toLowerCase() === 'true');
+            const createParams = {
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              tag_name: versionTag,
+              name: versionTag,
+              draft: draftRelease,
+              prerelease: isPrerelease
+            };
+            if (useAutoNotes) { createParams.generate_release_notes = true; }
+            else { createParams.body = "Reference local release notes or embed within .vip."; }
+            const response = await github.rest.repos.createRelease(createParams);
+            core.setOutput("release_id", response.data.id);
 
       - name: Attach .vip file(s) to Release
         if: ${{ success() && env.ATTACH_ARTIFACTS_TO_RELEASE == 'true' && github.event_name != 'pull_request' }}
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
-        script: |
-          const fs = require('fs');
-          const path = require('path');
-          const releaseId = parseInt('${{ steps.create_release.outputs.release_id }}', 10);
-          const vipDir = path.join(process.env.GITHUB_WORKSPACE, 'builds', 'VI Package');
-          for (const vipFile of fs.readdirSync(vipDir).filter(f => f.endsWith('.vip'))) {
-            const data = fs.readFileSync(path.join(vipDir, vipFile));
-            await github.rest.repos.uploadReleaseAsset({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              release_id: releaseId,
-              name: vipFile,
-              data,
-              headers: { 'content-type': 'application/octet-stream' }
-            });
-          }
+          script: |
+            const fs = require('fs');
+            const path = require('path');
+            const releaseId = parseInt('${{ steps.create_release.outputs.release_id }}', 10);
+            const vipDir = path.join(process.env.GITHUB_WORKSPACE, 'builds', 'VI Package');
+            for (const vipFile of fs.readdirSync(vipDir).filter(f => f.endsWith('.vip'))) {
+              const data = fs.readFileSync(path.join(vipDir, vipFile));
+              await github.rest.repos.uploadReleaseAsset({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: releaseId,
+                name: vipFile,
+                data,
+                headers: { 'content-type': 'application/octet-stream' }
+              });
+            }
