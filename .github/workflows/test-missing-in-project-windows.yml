@@ -1,43 +1,52 @@
-name: Test missing‑in‑project action (Windows)
-on: [workflow_dispatch]
+name: Test Missing‑In‑Project Action on Windows
+on:
+  workflow_dispatch:
 
 jobs:
-  test-action:
+  test-missing-in-project:
     runs-on: windows-latest
+
     steps:
-      - uses: actions/checkout@v3
-        with: { fetch-depth: 0 }
+      - name: Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
-      - name: Create dummy project + VI
+      - name: Prepare dummy project and VI
         shell: pwsh
         run: |
-          # lv_icon.lvproj at repo root
-          "<Project/>" | Out-File "$Env:GITHUB_WORKSPACE\lv_icon.lvproj" -Encoding ASCII
+          # 1) Create lv_icon.lvproj at repo root
+          New-Item -Path "$Env:GITHUB_WORKSPACE\lv_icon.lvproj" -ItemType File -Force | Out-Null
+          Set-Content -Path "$Env:GITHUB_WORKSPACE\lv_icon.lvproj" -Value "<Project/>"
 
-          # Ensure action folder & dummy VI exist
+          # 2) Ensure action folder & dummy VI exist
           $actionDir = Join-Path $Env:GITHUB_WORKSPACE '.github\actions\missing-in-project'
-          New-Item -ItemType Directory -Path $actionDir -Force | Out-Null
-          "<VI/>" | Out-File (Join-Path $actionDir 'MissinInProjectCLI.vi') -Encoding ASCII
+          if (-not (Test-Path $actionDir)) {
+            New-Item -Path $actionDir -ItemType Directory -Force | Out-Null
+          }
+          Set-Content -Path (Join-Path $actionDir 'MissinInProjectCLI.vi') -Value "<VI/>"
 
-      - name: Stub g‑cli
+      - name: Stub g-cli
         shell: pwsh
         run: |
+          # Create g-cli.cmd that returns a successful JSON payload
           $stub = '@echo off
-echo {"Passed": true, "MissingFiles": ""}'
-          $stubPath = "$Env:GITHUB_WORKSPACE\g-cli.cmd"
-          Set-Content -LiteralPath $stubPath -Value $stub -Encoding ASCII
+          echo {"Passed": true, "MissingFiles": ""}'
+          Set-Content -Path "$Env:GITHUB_WORKSPACE\g-cli.cmd" -Value $stub -Encoding ASCII
+
+          # Ensure our stub is found before any system g-cli
           $Env:PATH = "$Env:GITHUB_WORKSPACE;$Env:PATH"
 
-      - name: Run composite action
+      - name: Run Missing In Project action
         id: mip
         uses: ./.github/actions/missing-in-project
         with:
           lv-ver: 2021
-          arch: 64
-          # project-path omitted => repo root
+          arch:   64
+          # project-path omitted → defaults to repo root
 
-      - name: Show outputs
+      - name: Dump action outputs
         shell: pwsh
         run: |
-          Write-Host "passed:        ${{ steps.mip.outputs.passed }}"
-          Write-Host "missing-files: ${{ steps.mip.outputs['missing-files'] }}"
+          Write-Host "✅ passed:        $(${{ steps.mip.outputs.passed }})"
+          Write-Host "📋 missing-files: $(${{ steps.mip.outputs['missing-files'] }})"
