@@ -3,8 +3,6 @@ on:
   workflow_dispatch:
   pull_request:
     branches: [main]
-  schedule:
-    - cron: '0 2 * * *'    # nightly at 02:00 UTC
 
 jobs:
   missing-in-project-check:
@@ -16,7 +14,8 @@ jobs:
         bitness:    ["32","64"]
 
     steps:
-      - uses: actions/checkout@v3
+      - name: Check out code
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
@@ -24,8 +23,13 @@ jobs:
         id: find_proj
         shell: pwsh
         run: |
-          $file = Get-ChildItem -Path $PWD -Filter *.lvproj | Select-Object -First 1 -ExpandProperty Name
-          if (-not $file) { Write-Error 'No .lvproj file found in repo root'; exit 1 }
+          # Grab the first .lvproj in the repo root
+          $file = Get-ChildItem -Path $PWD -Filter *.lvproj `
+                    | Select-Object -First 1 -ExpandProperty Name
+          if (-not $file) {
+            Write-Error 'No .lvproj file found in repo root'
+            exit 1
+          }
           echo "project_file=$file" >> $GITHUB_OUTPUT
 
       - name: Missing In Project
@@ -41,12 +45,17 @@ jobs:
         if: always()
         shell: pwsh
         run: |
+          # Build and print the absolute .lvproj path
+          $projName = '${{ steps.find_proj.outputs.project_file }}'
+          $projPath = Join-Path $PWD $projName
+          echo "ℹ️  Project file: $projPath" >> $GITHUB_STEP_SUMMARY
+
+          # Dump pass/fail + missing-files.txt into the Summary
           $artifact = 'missing-files.txt'
           if (Test-Path $artifact) {
-            $content = Get-Content $artifact -Raw
             echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
-            echo $content >> $GITHUB_STEP_SUMMARY
+            Get-Content $artifact -Raw | ForEach-Object { echo $_ } >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
           } else {
             echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
