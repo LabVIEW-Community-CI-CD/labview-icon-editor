@@ -41,13 +41,15 @@ jobs:
         if: always()
         shell: pwsh
         run: |
-          if (${{ steps.mip.outputs.passed }} -eq 'True') {
-            echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
-          } else {
+          $artifact = 'missing-files.txt'
+          if (Test-Path $artifact) {
+            $content = Get-Content $artifact -Raw
             echo "### ❌ Missing files for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
-            echo "${{ steps.mip.outputs['missing-files'] }}" >> $GITHUB_STEP_SUMMARY
-            # also export to a file so we can upload it
-            Set-Content missing-files.txt "${{ steps.mip.outputs['missing-files'] }}"
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo $content >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          } else {
+            echo "✅ Nothing missing for ${{ matrix.lv-version }}‑${{ matrix.bitness }}" >> $GITHUB_STEP_SUMMARY
           }
 
       - name: Upload missing‑files artifact
