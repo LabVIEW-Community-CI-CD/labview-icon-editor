@@ -1,0 +1,243 @@
+# -------------------------------------------------------------
+#  Coding‑hours report – with anonymised bar & stacked‑trend PNGs
+# -------------------------------------------------------------
+name: Coding‑hours report
+
+on:
+  schedule:
+    - cron: '0 0 * * 1'                         # every Monday 00:00 UTC
+  workflow_dispatch:
+    inputs:
+      window_start:
+        description: 'Analyse commits since YYYY‑MM‑DD (defaults to last Monday)'
+        required: false
+      window_end:
+        description: 'Analyse commits until YYYY‑MM‑DD (defaults to today)'
+        required: false
+
+# ––‑ Never run two reports in parallel on the same ref
+concurrency:
+  group: coding-hours-${{ github.ref_name }}
+  cancel-in-progress: true
+
+# ––‑ Minimum scopes; add read:org via Settings → Actions → Workflow permissions
+permissions:
+  contents: write
+  actions: read
+  id-token: write
+
+env:
+  GO_VERSION: '1.24'
+  GITHOURS_VERSION: 'v0.1.2'
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+    # 1️⃣ Full clone so git‑hours can read history
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    # 2️⃣ Go + module cache
+    - uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    # 3️⃣ Cache compiled git‑hours binary
+    - name: Cache git‑hours
+      id: cache-githours
+      uses: actions/cache@v4
+      with:
+        path: ~/go/bin/git-hours
+        key: git-hours-${{ env.GO_VERSION }}-${{ env.GITHOURS_VERSION }}
+
+    # 4️⃣ Build git‑hours if cache missed
+    - name: Install git‑hours
+      if: steps.cache-githours.outputs.cache-hit != 'true'
+      run: |
+        git clone --depth 1 --branch $GITHOURS_VERSION https://github.com/trinhminhtriet/git-hours.git /tmp/git-hours
+        sed -i 's/go 1\.24\.1/go 1.24/' /tmp/git-hours/go.mod       # normalise
+        (cd /tmp/git-hours && go install .)
+
+    # 5️⃣ Compute reporting window (defaults: last‑Monday → today)
+    - name: Compute date window
+      id: dates
+      run: |
+        since="${{ github.event.inputs.window_start }}"
+        until="${{ github.event.inputs.window_end }}"
+        [[ -z "$since" ]] && since=$(date -u -d "last monday" +%F)
+        [[ -z "$until" ]] && until=$(date -u +%F)
+        echo "since=$since"  >> $GITHUB_OUTPUT
+        echo "until=$until"  >> $GITHUB_OUTPUT
+
+    # 6️⃣ Generate raw report
+    - name: Generate git‑hours report
+      run: |
+        git-hours -since "${{ steps.dates.outputs.since }}" \
+                  -until "${{ steps.dates.outputs.until }}" > git-hours.txt
+
+    # 7️⃣ Show raw report in the run summary
+    - name: Add raw report to summary
+      run: |
+        {
+          echo "## ⏱ Coding‑hours report (raw)"
+          echo "_${{ steps.dates.outputs.since }} → ${{ steps.dates.outputs.until }}_"
+          echo '```text'
+          cat git-hours.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    # 8️⃣ Upload raw report as artefact
+    - uses: actions/upload-artifact@v4
+      with:
+        name: git-hours-output-${{ github.run_id }}
+        path: git-hours.txt
+        retention-days: 30
+
+    ##################################################################
+    #  📊 Build & embed bar + stacked‑trend graphs, save mask map
+    ##################################################################
+    - uses: actions/setup-python@v5        # ~15 s if cache warm
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+
+    - name: Install plotting libraries
+      run: pip install --disable-pip-version-check pandas matplotlib requests
+
+    - name: Build comparison graphs
+      id: make-graphs
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT || github.token }}   # needs read:org
+        ORG_NAME: ni
+        WINDOW_END: ${{ steps.dates.outputs.until }}
+      run: |
+        python - <<'PY'
+        import base64, io, json, os, re, hashlib, requests, pathlib, datetime as dt
+        import pandas as pd, matplotlib.pyplot as plt
+
+        # --- helper -----------------------------------------------------
+        def parse(raw: str):
+            try:
+                data = json.loads(raw)
+                return [(k, float(v.get('hours', v))) for k, v in data.items()
+                        if k.lower() != 'total']
+            except json.JSONDecodeError:
+                rows = []
+                rgx  = re.compile(r'^\s*(.*?)\s+(\d+(?:\.\d+)?)\s*h', re.I)
+                for ln in raw.splitlines():
+                    m = rgx.match(ln)
+                    if m:
+                        rows.append((m.group(1).strip(), float(m.group(2))))
+                return rows
+        def b64(fig):
+            buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=140)
+            return base64.b64encode(buf.getvalue()).decode()
+
+        # --- 1. parse current report -----------------------------------
+        rows = parse(pathlib.Path('git-hours.txt').read_text())
+        if not rows:
+            print('::warning::No author/hour rows found – adjust parser'); quit()
+
+        df_now = pd.DataFrame(rows, columns=['author', 'hours'])
+
+        # --- 2. anonymise ----------------------------------------------
+        ORG   = os.getenv('ORG_NAME', 'ni')
+        TOKEN = os.getenv('GH_TOKEN')
+        HEAD  = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
+        def is_member(user):
+            url = f'https://api.github.com/orgs/{ORG}/members/{user}'
+            return requests.get(url, headers=HEAD).status_code == 204
+        def mask(name):  # deterministic
+            return 'Contributor_' + hashlib.sha1(name.encode()).hexdigest()[:6]
+
+        mapping = {a: (a if is_member(a.split("<")[0].strip()) else mask(a))
+                   for a in df_now['author']}
+        df_now['label'] = df_now['author'].map(mapping)
+
+        # --- 3. bar chart current window --------------------------------
+        df_sorted = df_now.sort_values('hours')
+        fig1, ax1 = plt.subplots(figsize=(6, max(2, .35*len(df_sorted))))
+        ax1.barh(df_sorted['label'], df_sorted['hours'])
+        ax1.set_xlabel('Hours'); ax1.set_title('Hours per contributor')
+        plt.tight_layout()
+
+        # --- 4. stacked trend (last 8 windows) --------------------------
+        history = []
+        rep_dir = pathlib.Path('reports')
+        def parse_file(fp):  # reuse same masking
+            rows = parse(fp.read_text()); out = {}
+            for a, h in rows:
+                out[mapping.get(a, mask(a))] = h
+            return out
+        if rep_dir.exists():
+            for f in sorted(rep_dir.glob('git-hours-*_to_*.txt')):
+                end = f.stem.split('_to_')[-1]
+                history.append((end, parse_file(f)))
+        history.append((os.getenv('WINDOW_END'),        # current run
+                        df_now.set_index('label')['hours'].to_dict()))
+        history = history[-8:]                          # keep 8
+
+        if history:
+            dates = [dt.datetime.fromisoformat(d) for d, _ in history]
+            pivot = pd.DataFrame([{**{'date': d}, **vals} for d, vals in history]
+                                 ).fillna(0).set_index('date').sort_index()
+            fig2, ax2 = plt.subplots(figsize=(6,3))
+            ax2.stackplot(pivot.index,
+                          *[pivot[c] for c in pivot.columns],
+                          labels=pivot.columns)
+            ax2.legend(fontsize=6, loc='upper left', bbox_to_anchor=(1,1))
+            ax2.set_ylabel('Hours')
+            ax2.set_title('Weekly coding‑hours (last 8 windows)')
+            plt.xticks(rotation=45, ha='right'); plt.tight_layout()
+        else:
+            fig2 = None
+
+        # --- 5. write summary ------------------------------------------
+        summ = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY']).open('a')
+        summ.write('## 📊 Coding‑hours visual summary\n')
+        summ.write(f'<img alt="bar" src="data:image/png;base64,{b64(fig1)}" />\n\n')
+        if fig2:
+            summ.write(f'<img alt="trend" src="data:image/png;base64,{b64(fig2)}" />\n')
+        summ.close()
+
+        # --- 6. save anonymisation map ----------------------------------
+        jpath = 'anonymisation-map.json'
+        json.dump(mapping, open(jpath, 'w'), indent=2)
+        with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
+            o.write(f'json={jpath}\n')
+        PY
+
+    # 9️⃣ Upload anonymisation map
+    - uses: actions/upload-artifact@v4
+      with:
+        name: anonymisation-map-${{ github.run_id }}
+        path: ${{ steps.make-graphs.outputs.json }}
+        retention-days: 90
+
+    # 🔟 (Optional) commit raw report for long‑term trend
+    - name: Commit to metrics branch
+      if: github.ref_name == 'main'
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -z "$GH_TOKEN" ]; then
+          echo "GH_PAT secret not set – skipping metrics commit"; exit 0
+        fi
+        git config --global user.name  "git‑hours bot"
+        git config --global user.email "bot@github.com"
+        git fetch origin metrics || true
+        git switch -C metrics origin/metrics || git switch -C metrics
+        mkdir -p reports
+        cp git-hours.txt \
+          "reports/git-hours-${{ steps.dates.outputs.since }}_to_${{ steps.dates.outputs.until }}.txt"
+        git add reports
+        git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" \
+          || { echo "No new data"; exit 0; }
+        git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:metrics
