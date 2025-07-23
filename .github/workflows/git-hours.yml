@@ -2,7 +2,9 @@
 name: Coding‑hours report
 
 on:
-  workflow_dispatch:
+  schedule:
+    - cron: '0 0 * * 1'          # every Monday at 00:00 UTC
+  workflow_dispatch:             # manual trigger
     inputs:
       window_start:
         description: 'Report since YYYY‑MM‑DD'
@@ -12,7 +14,7 @@ on:
         required: false
 
 permissions:
-  contents: write                # needed if you keep the commit step
+  contents: write                # needed only if you keep the commit step
 
 jobs:
   report:
@@ -23,31 +25,33 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2️⃣ Install Go (for the Go‐based git‑hours)
+      # 2️⃣ Set up Go
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
           go-version: '1.20'
 
-      # 3️⃣ Install git‑hours via Go
-      - name: Install git‑hours (Go)
+      # 3️⃣ Install git-hours (Go) at v0.1.2
+      - name: Install git-hours (Go)
         run: |
-          go install github.com/trinhminhtriet/git-hours@latest
-          echo "$GOPATH/bin" >> $GITHUB_PATH
+          go install github.com/trinhminhtriet/git-hours@v0.1.2
+        # Using the specific v0.1.2 as requested: https://pkg.go.dev/github.com/trinhminhtriet/git-hours@v0.1.2
 
-      # 4️⃣ Generate JSON report
+      # 4️⃣ Run git-hours with optional inputs
       - name: Generate JSON
         id: hours
         run: |
           ARGS=""
-          [ -n "${{ github.event.inputs.window_start }}" ] && \
+          if [ -n "${{ github.event.inputs.window_start }}" ]; then
             ARGS+=" --since ${{ github.event.inputs.window_start }}"
-          [ -n "${{ github.event.inputs.email_map }}" ] && \
+          fi
+          if [ -n "${{ github.event.inputs.email_map }}" ]; then
             ARGS+=" --email ${{ github.event.inputs.email_map }}"
+          fi
           git-hours $ARGS --json > git-hours.json
           echo "TOTAL=$(jq '.total.hours' git-hours.json)" >> $GITHUB_OUTPUT
 
-      # 5️⃣ Add Markdown summary to the run page
+      # 5️⃣ Publish a Markdown summary to the run page
       - name: Add markdown summary
         run: |
           {
