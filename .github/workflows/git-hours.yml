@@ -100,12 +100,17 @@ jobs:
         path: git-hours.txt
         retention-days: 30
 
-    # 9️⃣ Optionally commit to the `metrics` branch (only from default branch)
+  # 9️⃣ Optionally commit to the `metrics` branch (only from default branch)
     - name: Commit to metrics branch
-      if: github.ref_name == 'main' && secrets.GH_PAT != ''
+      if: github.ref_name == 'main'          # ✅ reference to `secrets` removed
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT }}
+        GH_TOKEN: ${{ secrets.GH_PAT }}      # secret still injected for the step
       run: |
+        if [ -z "$GH_TOKEN" ]; then
+          echo "GH_PAT secret not set — skipping metrics commit"
+          exit 0
+        fi
+
         git config --global user.name  "git‑hours bot"
         git config --global user.email "bot@github.com"
         git fetch origin metrics || true
@@ -113,5 +118,6 @@ jobs:
         mkdir -p reports
         cp git-hours.txt "reports/git-hours-${{ steps.dates.outputs.since }}_to_${{ steps.dates.outputs.until }}.txt"
         git add reports
-        git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" || echo "No changes"
+        git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" || {
+          echo "No changes to commit"; exit 0; }
         git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:metrics
