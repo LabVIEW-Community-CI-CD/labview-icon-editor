@@ -121,3 +121,106 @@ jobs:
         git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" || {
           echo "No changes to commit"; exit 0; }
         git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:metrics
+
+jobs:
+  # ─────────────────────────────────────────────
+  # 1️⃣  Your “report” job (unchanged) …
+  # ─────────────────────────────────────────────
+
+  trend-graph:
+    needs: report                 # run only after the raw‑data job
+    if: github.ref_name == 'main' # don’t waste minutes on other branches
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1️⃣  Check out the metrics branch *with history*
+    - name: Checkout metrics branch
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0            # need full history for git
+        ref: metrics              # branch where the raw reports live
+
+    # 2️⃣  Set up Python + dependency cache
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'              # built‑in pip cache :contentReference[oaicite:0]{index=0}
+
+    # 3️⃣  Install plotting libs (≈ 1 s when cache hits)
+    - run: pip install matplotlib pandas
+
+    # 4️⃣  Build the PNG chart from all txt reports
+    - name: Build trend chart
+      id: build
+      run: |
+        python - <<'PY'
+        import re, pathlib, datetime as dt, sys
+        import matplotlib.pyplot as plt
+
+        reports_dir = pathlib.Path('reports')
+        pattern = re.compile(r'git-hours-(\d{4}-\d{2}-\d{2})\.txt')
+
+        dates, hours = [], []
+
+        for fp in sorted(reports_dir.glob('git-hours-*.txt')):
+            m = pattern.match(fp.name)
+            if not m:
+                continue
+            date = dt.datetime.strptime(m.group(1), '%Y-%m-%d')
+            text = fp.read_text()
+            m_total = re.search(r'Total hours.*?([0-9.]+)', text)
+            if not m_total:
+                continue
+            dates.append(date)
+            hours.append(float(m_total.group(1)))
+
+        if not dates:
+            print('::warning::No historical git‑hours reports found – skipping graph')
+            sys.exit(0)
+
+        plt.figure(figsize=(10, 4))
+        plt.plot(dates, hours, marker='o', linewidth=2)
+        plt.title('Coding‑hours trend')
+        plt.xlabel('Week starting')
+        plt.ylabel('Hours')
+        plt.grid(True, linestyle='--', alpha=0.4)
+        plt.tight_layout()
+        out = reports_dir / 'coding-hours-trend.png'
+        plt.savefig(out, dpi=150)
+        print(f'Chart saved to {out}')
+        PY
+
+    # 5️⃣  Commit chart back to metrics (token injected as env var)
+    - name: Commit chart
+      if: steps.build.outcome == 'success'
+      env:
+        GH_TOKEN: ${{ secrets.GH_PAT }}
+      run: |
+        if [ -z "$GH_TOKEN" ]; then
+          echo "GH_PAT secret not set – skipping chart commit"
+          exit 0
+        fi
+        git config --global user.name  "git-hours bot"
+        git config --global user.email "bot@github.com"
+        git add reports/coding-hours-trend.png
+        git commit -m "chore(metrics): update coding‑hours trend graph" || {
+          echo "No chart changes to commit"; exit 0; }
+        git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:metrics
+
+    # 6️⃣  Upload chart as workflow artefact
+    - uses: actions/upload-artifact@v4
+      if: steps.build.outcome == 'success'
+      with:
+        name: coding-hours-trend-${{ github.run_id }}
+        path: reports/coding-hours-trend.png
+        retention-days: 30
+
+    # 7️⃣  Embed the image in the run summary
+    - name: Add chart to summary
+      if: steps.build.outcome == 'success'
+      run: |
+        echo "## 📈 Coding‑hours trend"       >> "$GITHUB_STEP_SUMMARY"
+        echo "Generated from historical raw reports in \`metrics/reports\`." >> "$GITHUB_STEP_SUMMARY"
+        echo ""                                >> "$GITHUB_STEP_SUMMARY"
+        echo "<img src=\"reports/coding-hours-trend.png\">" >> "$GITHUB_STEP_SUMMARY"
