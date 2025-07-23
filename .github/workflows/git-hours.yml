@@ -78,4 +78,3 @@ jobs:
           git add reports
           git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
-```
