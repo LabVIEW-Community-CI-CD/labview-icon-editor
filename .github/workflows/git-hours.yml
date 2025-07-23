@@ -1,0 +1,87 @@
+name: Coding‑hours report
+
+on:
+  schedule:
+    # ⇢ At 00:00 UTC every Monday. Adjust to taste.
+    - cron: '0 0 * * 1'
+  workflow_dispatch:               # ⇢ Manual “Run workflow” button
+    inputs:
+      window_start:
+        description: 'Report since YYYY‑MM‑DD (blank = all history)'
+        required: false
+      email_map:
+        description: 'Alias mapping: corp@ex.com=me@gmail.com'
+        required: false
+
+permissions:                       # Needed if you want the commit step
+  contents: write                  # read‑only is enough w/o commits
+
+jobs:
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      # 1️⃣  Get the code – full history required for accurate stats
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # 2️⃣  Install Node and cache global npm packages
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'             # built‑in cache shortcut :contentReference[oaicite:0]{index=0}
+
+      - run: npm install -g git-hours
+
+      # 3️⃣  Run git‑hours, honouring optional UI inputs
+      - name: Generate JSON
+        id: hours
+        run: |
+          ARGS=""
+          [ -n "${{ github.event.inputs.window_start }}" ] && \
+            ARGS+=" --since ${{ github.event.inputs.window_start }}"
+          [ -n "${{ github.event.inputs.email_map }}" ] && \
+            ARGS+=" --email ${{ github.event.inputs.email_map }}"
+          git-hours $ARGS --json > git-hours.json
+          echo "TOTAL=$(jq '.total.hours' git-hours.json)" >> $GITHUB_OUTPUT
+
+      # 4️⃣  Write a nice table into the run’s “Summary” tab
+      - name: Add markdown summary
+        run: |
+          {
+            echo "### ⏱ Coding‑hours report"
+            echo ""
+            echo "**Total hours:** ${{ steps.hours.outputs.TOTAL }}"
+            echo ""
+            jq -r '.authors|to_entries[]|
+                   "| \(.key) | \(.value.hours) h | \(.value.commits) |"' \
+                   git-hours.json |
+            {
+              echo "| Author | Hours | Commits |"
+              echo "|--------|-------|---------|"
+              cat
+            }
+          } >> $GITHUB_STEP_SUMMARY      # step‑summary feature :contentReference[oaicite:1]{index=1}
+
+      # 5️⃣  Keep the raw file as an artifact (1–90 days allowed) :contentReference[oaicite:2]{index=2}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: git-hours-${{ github.run_id }}
+          path: git-hours.json
+          retention-days: 30
+
+      # 6️⃣  (Optional) Commit the JSON into branch “metrics”
+      - name: Commit to metrics branch
+        if: github.ref == 'refs/heads/main'   # only when the main branch ran
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}     # ⇠ create a classic PAT w/ repo scope
+        run: |
+          git config --global user.name  "git-hours bot"
+          git config --global user.email "bot@github.com"   # any non-private email :contentReference[oaicite:3]{index=3}
+          git switch -C metrics || git checkout metrics
+          mkdir -p reports
+          mv git-hours.json reports/git-hours-$(date +%F).json
+          git add reports
+          git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
+          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
