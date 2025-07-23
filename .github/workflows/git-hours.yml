@@ -27,7 +27,7 @@ jobs:
         with:
           go-version: '1.24'
 
-      # 3️⃣ Install git-hours (Go) at v0.1.2 with go.mod patch
+      # 3️⃣ Install git-hours (Go) v0.1.2 with go.mod patch
       - name: Install git-hours (Go) v0.1.2
         run: |
           git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
@@ -35,26 +35,21 @@ jobs:
           sed -i 's/go 1.24.1/go 1.24/' go.mod
           go install .
 
-      # 4️⃣ Run git-hours and capture output
+      # 4️⃣ Generate the report into a text file
       - name: Generate report
-        id: report
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
             ARGS+=" -since ${{ github.event.inputs.window_start }}"
           fi
-          OUTPUT=$(git-hours $ARGS)
-          echo "REPORT<<EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          echo "$OUTPUT" > git-hours.txt
+          git-hours $ARGS > git-hours.txt
 
-      # 5️⃣ Publish a Markdown summary to the run page
+      # 5️⃣ Publish the raw report to the run summary
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          echo "$REPORT" >> $GITHUB_STEP_SUMMARY
+          cat git-hours.txt >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # 6️⃣ Upload the raw output as an artifact
