@@ -114,105 +114,100 @@ jobs:
     - name: Build comparison graphs
       id: make-graphs
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || github.token }}   # needs read:org
+        GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
         ORG_NAME: ni
-        WINDOW_END: ${{ steps.dates.outputs.until }}
       run: |
         python - <<'PY'
         import base64, io, json, os, re, hashlib, requests, pathlib, datetime as dt
-        import pandas as pd, matplotlib.pyplot as plt
+        import pandas as pd, matplotlib.pyplot as plt, collections
 
-        # --- helper -----------------------------------------------------
-        def parse(raw: str):
-            try:
+        RAW = pathlib.Path('git-hours.txt').read_text()
+
+        # ---------- 1. Parse git-hours output ----------
+        def parse(raw):
+            try:                                    # JSON variant
                 data = json.loads(raw)
-                return [(k, float(v.get('hours', v))) for k, v in data.items()
-                        if k.lower() != 'total']
+                return [(k, v['hours']) for k, v in data.items()
+                        if k.lower() not in ('total',)]
             except json.JSONDecodeError:
-                rows = []
-                rgx  = re.compile(r'^\s*(.*?)\s+(\d+(?:\.\d+)?)\s*h', re.I)
-                for ln in raw.splitlines():
-                    m = rgx.match(ln)
-                    if m:
-                        rows.append((m.group(1).strip(), float(m.group(2))))
-                return rows
-        def b64(fig):
-            buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=140)
-            return base64.b64encode(buf.getvalue()).decode()
-
-        # --- 1. parse current report -----------------------------------
-        rows = parse(pathlib.Path('git-hours.txt').read_text())
+                pat = re.compile(r'^\s*(.*?)\s+(\d+(?:\.\d+)?)\s*h', re.I)
+                return [(m.group(1).strip(), float(m.group(2)))
+                        for m in map(pat.match, raw.splitlines()) if m]
+        rows = parse(RAW)
         if not rows:
-            print('::warning::No author/hour rows found – adjust parser'); quit()
-
+            print('::warning::No author/hour rows parsed'); exit(0)
         df_now = pd.DataFrame(rows, columns=['author', 'hours'])
 
-        # --- 2. anonymise ----------------------------------------------
-        ORG   = os.getenv('ORG_NAME', 'ni')
-        TOKEN = os.getenv('GH_TOKEN')
-        HEAD  = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
-        def is_member(user):
-            url = f'https://api.github.com/orgs/{ORG}/members/{user}'
-            return requests.get(url, headers=HEAD).status_code == 204
-        def mask(name):  # deterministic
-            return 'Contributor_' + hashlib.sha1(name.encode()).hexdigest()[:6]
-
-        mapping = {a: (a if is_member(a.split("<")[0].strip()) else mask(a))
-                   for a in df_now['author']}
+        # ---------- 2. Deterministic anonymisation ----------
+        ORG = os.getenv('ORG_NAME', 'ni')
+        TOKEN = os.getenv('GH_TOKEN'); HDR = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
+        def member(user): return requests.get(f'https://api.github.com/orgs/{ORG}/members/{user}', headers=HDR).status_code == 204
+        mask = lambda name: f'Contributor_{hashlib.sha1(name.encode()).hexdigest()[:6]}'
+        mapping = {a: (a if member(a.split('<')[0].strip()) else mask(a)) for a in df_now['author']}
         df_now['label'] = df_now['author'].map(mapping)
 
-        # --- 3. bar chart current window --------------------------------
-        df_sorted = df_now.sort_values('hours')
-        fig1, ax1 = plt.subplots(figsize=(6, max(2, .35*len(df_sorted))))
-        ax1.barh(df_sorted['label'], df_sorted['hours'])
-        ax1.set_xlabel('Hours'); ax1.set_title('Hours per contributor')
-        plt.tight_layout()
+        # ---------- 3. Bar chart (current window) ----------
+        df_now.sort_values('hours', inplace=True)
+        fig1, ax1 = plt.subplots(figsize=(6, max(2, .35*len(df_now))))
+        ax1.barh(df_now['label'], df_now['hours'])
+        ax1.set_xlabel('Hours'); ax1.set_title('Hours per contributor'); plt.tight_layout()
 
-        # --- 4. stacked trend (last 8 windows) --------------------------
-        history = []
-        rep_dir = pathlib.Path('reports')
-        def parse_file(fp):  # reuse same masking
-            rows = parse(fp.read_text()); out = {}
-            for a, h in rows:
-                out[mapping.get(a, mask(a))] = h
-            return out
-        if rep_dir.exists():
-            for f in sorted(rep_dir.glob('git-hours-*_to_*.txt')):
+        # ---------- 4. Build stacked weekly trend (last 8 ISO weeks) ----------
+        def week_key(d):                       # ISO week label "YYYY‑Www"
+            iso = dt.date.fromisoformat(d).isocalendar()
+            return f"{iso.year}-W{iso.week:02d}"
+
+        def parse_file(fp):
+            return {mapping.get(a, mask(a)): h for a, h in parse(fp.read_text())}
+
+        hist = collections.defaultdict(lambda: collections.Counter())
+        reports = pathlib.Path('reports')
+        if reports.exists():
+            for f in reports.glob('git-hours-*_to_*.txt'):
                 end = f.stem.split('_to_')[-1]
-                history.append((end, parse_file(f)))
-        history.append((os.getenv('WINDOW_END'),        # current run
-                        df_now.set_index('label')['hours'].to_dict()))
-        history = history[-8:]                          # keep 8
+                hist[week_key(end)].update(parse_file(f))
 
-        if history:
-            dates = [dt.datetime.fromisoformat(d) for d, _ in history]
-            pivot = pd.DataFrame([{**{'date': d}, **vals} for d, vals in history]
-                                 ).fillna(0).set_index('date').sort_index()
+        current_week = week_key('${{ steps.dates.outputs.until }}')
+        hist[current_week].update(df_now.set_index('label')['hours'].to_dict())
+
+        # keep last 8 weeks chronologically
+        weeks = sorted(hist.keys())[-8:]
+        if weeks:
+            pivot = pd.DataFrame([{**{'week': w}, **hist[w]} for w in weeks]).fillna(0)
+            pivot.set_index('week', inplace=True)
+
             fig2, ax2 = plt.subplots(figsize=(6,3))
-            ax2.stackplot(pivot.index,
-                          *[pivot[c] for c in pivot.columns],
-                          labels=pivot.columns)
+            labels = pivot.columns
+            ax2.stackplot(pivot.index, *[pivot[c] for c in labels], labels=labels)
             ax2.legend(fontsize=6, loc='upper left', bbox_to_anchor=(1,1))
-            ax2.set_ylabel('Hours')
-            ax2.set_title('Weekly coding‑hours (last 8 windows)')
+            ax2.set_ylabel('Hours'); ax2.set_title('Weekly coding‑hours (last 8 ISO weeks)')
             plt.xticks(rotation=45, ha='right'); plt.tight_layout()
         else:
             fig2 = None
 
-        # --- 5. write summary ------------------------------------------
-        summ = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY']).open('a')
-        summ.write('## 📊 Coding‑hours visual summary\n')
-        summ.write(f'<img alt="bar" src="data:image/png;base64,{b64(fig1)}" />\n\n')
-        if fig2:
-            summ.write(f'<img alt="trend" src="data:image/png;base64,{b64(fig2)}" />\n')
-        summ.close()
+        # ---------- 5. Encode → Base64 and append to summary ----------
+        def b64(fig):
+            buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=140)
+            return base64.b64encode(buf.getvalue()).decode()
 
-        # --- 6. save anonymisation map ----------------------------------
-        jpath = 'anonymisation-map.json'
-        json.dump(mapping, open(jpath, 'w'), indent=2)
-        with open(os.environ['GITHUB_OUTPUT'], 'a') as o:
-            o.write(f'json={jpath}\n')
+        summary = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY'])
+        with summary.open('a') as s:
+            s.write('## 📊 Coding‑hours visual summary\n')
+            s.write(f'<img alt="bar"   src="data:image/png;base64,{b64(fig1)}"/>\n\n')
+            if fig2: s.write(f'<img alt="trend" src="data:image/png;base64,{b64(fig2)}"/>\n')
+
+        # ---------- 6. Store anonymisation map ----------
+        json_path = f'anonym-map-${{ github.run_id }}.json'
+        json.dump(mapping, open(json_path,'w'), indent=2)
+        print(f'::set-output name=json::{json_path}')
         PY
+
+    - uses: actions/upload-artifact@v4
+      with:
+        name: anonymisation-map-${{ github.run_id }}
+        path: ${{ steps.make-graphs.outputs.json }}
+        retention-days: 90
+
 
     # 9️⃣ Upload anonymisation map
     - uses: actions/upload-artifact@v4
