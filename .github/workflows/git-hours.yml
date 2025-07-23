@@ -1,7 +1,8 @@
-# .github/workflows/git-hours.yml
 name: Coding‑hours report
 
 on:
+  schedule:
+    - cron: '0 0 * * 1'          # every Monday at 00:00 UTC
   workflow_dispatch:             # manual trigger
     inputs:
       window_start:
@@ -23,11 +24,11 @@ jobs:
         with:
           fetch-depth: 0
 
-      # 2️⃣ Set up Go
+      # 2️⃣ Set up Go (must be ≥1.24 to support git-hours v0.1.2 go.mod)
       - name: Setup Go
         uses: actions/setup-go@v4
         with:
-          go-version: '1.20'
+          go-version: '1.24'
 
       # 3️⃣ Install git-hours (Go) at v0.1.2 with go.mod patch
       - name: Install git-hours (Go) at v0.1.2 with go.mod fix
