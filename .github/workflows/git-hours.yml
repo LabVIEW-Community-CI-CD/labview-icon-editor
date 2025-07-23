@@ -2,8 +2,6 @@
 name: Coding‑hours report
 
 on:
-  schedule:
-    - cron: '0 0 * * 1'          # every Monday at 00:00 UTC
   workflow_dispatch:             # manual trigger
     inputs:
       window_start:
@@ -31,11 +29,13 @@ jobs:
         with:
           go-version: '1.20'
 
-      # 3️⃣ Install git-hours (Go) at v0.1.2
-      - name: Install git-hours (Go)
+      # 3️⃣ Install git-hours (Go) at v0.1.2 with go.mod patch
+      - name: Install git-hours (Go) at v0.1.2 with go.mod fix
         run: |
-          go install github.com/trinhminhtriet/git-hours@v0.1.2
-        # Using the specific v0.1.2 as requested: https://pkg.go.dev/github.com/trinhminhtriet/git-hours@v0.1.2
+          git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git $GITHUB_WORKSPACE/git-hours-src
+          cd $GITHUB_WORKSPACE/git-hours-src
+          sed -i 's/go 1.24.1/go 1.24/' go.mod
+          go install .
 
       # 4️⃣ Run git-hours with optional inputs
       - name: Generate JSON
@@ -59,9 +59,7 @@ jobs:
             echo ""
             echo "**Total hours:** ${{ steps.hours.outputs.TOTAL }}"
             echo ""
-            jq -r '.authors|to_entries[]|
-                   "| \(.key) | \(.value.hours) h | \(.value.commits) |"' \
-                   git-hours.json |
+            jq -r '.authors|to_entries[]| "| \(.key) | \(.value.hours) h | \(.value.commits) |"' git-hours.json |
             {
               echo "| Author | Hours | Commits |"
               echo "|--------|-------|---------|"
@@ -82,7 +80,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}
         run: |
-          git config --global user.name  "git-hours bot"
+          git config --global user.name "git-hours bot"
           git config --global user.email "bot@github.com"
           git switch -C metrics || git checkout metrics
           mkdir -p reports
