@@ -2,48 +2,53 @@ name: Coding‑hours report
 
 on:
   schedule:
-    - cron: '0 0 * * 1'          # every Monday 00:00 UTC
+    - cron: '0 0 * * 1'               # every Monday 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
         description: 'Report since YYYY‑MM‑DD'
         required: false
 
-# GITHUB_TOKEN gets write access for branch pushes
 permissions:
-  contents: write
+  contents: write                      # allow pushes to metrics & gh‑pages
+  pages: write                         # allow GitHub Pages deployment
+  id-token: write                      # required by deploy‑pages action
 
+env:
+  JIKYUU_VERSION: v0.1.1               # change only if you want a newer release
+  ASSET_NAME: jikyuu-v0.1.1-x86_64-unknown-linux-gnu.tar.gz
+
+###############################################################################
+# Job 1 ─ Generate JSON, create badge, commit to `metrics` (develop only)
+###############################################################################
 jobs:
-###############################################################################
-# Job 1 ─ Generate JSON, create badge, commit to `metrics`
-###############################################################################
   report:
+    if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
 
     steps:
       # 1 Checkout full history
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-
-      # 2 System deps for the Rust OpenSSL binding + jq for later
-      - name: Install build prerequisites
-        run: |
-          sudo apt-get update -y
-          sudo apt-get install -y libssl-dev pkg-config jq
-
-      # 3 Minimal Rust tool‑chain (≈50 MB)
-      - uses: actions-rs/toolchain@v1
         with:
-          profile: minimal
-          toolchain: stable
-          override: true
+          fetch-depth: 0
 
-      # 4 Install jikyuu (≈20 s compile)
-      - name: Install jikyuu
-        run: cargo install --locked jikyuu
+      # 2 Install jq (for JSON shaping)
+      - name: Install jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
 
-      # 5 Generate raw report (per‑email)
-      - name: Generate coding‑hours JSON
+      # 3 Download & install pre‑built jikyuu binary
+      - name: Download jikyuu binary
+        run: |
+          curl -sSL -o ${{ env.ASSET_NAME }} \
+            https://github.com/Ruin0x11/jikyuu/releases/download/${{ env.JIKYUU_VERSION }}/${{ env.ASSET_NAME }}
+          tar -xzf ${{ env.ASSET_NAME }}
+          sudo mv jikyuu /usr/local/bin/
+          sudo chmod +x /usr/local/bin/jikyuu
+      - name: Verify jikyuu
+        run: jikyuu --version
+
+      # 4 Generate per‑email JSON report
+      - name: Generate git‑hours JSON
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
@@ -58,7 +63,7 @@ jobs:
                  | .total.commits += $c.commit_count)' \
           > git-hours.json
 
-      # 6 Build Shields.io badge
+      # 5 Create Shields.io badge
       - name: Build badge.json
         run: |
           HOURS=$(jq '.total.hours' git-hours.json)
@@ -69,7 +74,7 @@ jobs:
             "color":"informational" }
           EOF
 
-      # 7 Readable table in the job summary
+      # 6 Nice markdown summary in the job log
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
@@ -81,16 +86,15 @@ jobs:
                , (map([.key, (.value.hours|tostring), (.value.commits|tostring)])))
             | @tsv' git-hours.json | column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-      # 8 Upload for the Pages job
+      # 7 Upload JSON for the site‑build job
       - uses: actions/upload-artifact@v4
         with:
-          name: git-hours-output-${{ github.run_id }}
+          name: git-hours-json
           path: git-hours.json
           retention-days: 30
 
-      # 9 Commit badge + snapshot to metrics (develop only)
-      - name: Commit metrics & badge
-        if: github.ref == 'refs/heads/develop'
+      # 8 Commit badge + snapshot to metrics
+      - name: Push to metrics branch
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
@@ -107,39 +111,36 @@ jobs:
           git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
 
 ###############################################################################
-# Job 2 ─ Build static dashboard (with bar‑chart) & deploy to GitHub Pages
+# Job 2 ─ Build static dashboard (with bar‑chart) & upload as Pages artifact
 ###############################################################################
-  build-pages:
+  build-site:
     needs: report
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v4
 
-      # 1 Download JSON from previous job
+      # 1 Download the JSON produced in Job 1
       - uses: actions/download-artifact@v4
         with:
-          name: git-hours-output-${{ github.run_id }}
-          path: tmp                       # → tmp/git-hours.json
+          name: git-hours-json
+          path: tmp                            # tmp/git-hours.json
 
-      # 2 Assemble site
+      # 2 Assemble the static website
       - name: Build KPIs site
         run: |
           DATE=$(date +%F)
           mkdir -p site/data
           cp tmp/git-hours.json "site/data/git-hours-${DATE}.json"
-          cp tmp/git-hours.json  site/git-hours-latest.json   # easy fetch for chart
+          cp tmp/git-hours.json site/git-hours-latest.json
 
           python - <<'PY'
-          import json, datetime, pathlib, html, textwrap
-          raw   = json.load(open('tmp/git-hours.json'))
-          total = raw["total"]
-          #  Collect data for JS
-          labels = [html.escape(k) for k in raw.keys() if k != "total"]
-          hours  = [raw[k]["hours"] for k in labels]
-
+          import json, datetime, pathlib, html, textwrap, sys
+          data  = json.load(open('tmp/git-hours.json'))
+          total = data['total']
+          labels = [html.escape(k) for k in data.keys() if k != 'total']
           rows = "\n".join(
-              f"<tr><td>{l}</td><td>{raw[l]['hours']}</td><td>{raw[l]['commits']}</td></tr>"
+              f"<tr><td>{l}</td><td>{data[l]['hours']}</td><td>{data[l]['commits']}</td></tr>"
               for l in labels)
 
           page = f"""
@@ -150,6 +151,7 @@ jobs:
                   href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
             <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
             <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+            <style>canvas{{max-height:400px}}</style>
           </head><body><main>
             <h1>Collaborator KPIs</h1>
             <p><em>Last updated {datetime.datetime.utcnow():%Y‑%m‑%d %H:%M UTC}</em></p>
@@ -158,11 +160,11 @@ jobs:
             <ul>
               <li><strong>Hours</strong>: {total['hours']}</li>
               <li><strong>Commits</strong>: {total['commits']}</li>
-              <li><strong>Contributors</strong>: {len(raw)-1}</li>
+              <li><strong>Contributors</strong>: {len(data)-1}</li>
             </ul>
 
             <h2>Hours per contributor</h2>
-            <canvas id='hoursChart' style='max-height:400px'></canvas>
+            <canvas id='hoursChart'></canvas>
 
             <h2>Detail table</h2>
             <table class='sortable'>
@@ -184,17 +186,39 @@ jobs:
                       labels: labels,
                       datasets: [{{ label: 'Hours', data: hours }}]
                     }},
-                    options: {{ responsive: true, maintainAspectRatio: false }}
+                    options: {{
+                      responsive: true,
+                      maintainAspectRatio: false,
+                      plugins: {{
+                        legend: {{ display: false }}
+                      }},
+                      scales: {{
+                        y: {{ beginAtZero: true }}
+                      }}
+                    }}
                   }});
                 }});
             </script>
-          </main></body></html>"""
+          </main></body></html>
+          """
           pathlib.Path('site/index.html').write_text(textwrap.dedent(page))
           PY
 
-      # 3 Deploy via gh‑pages branch
-      - uses: peaceiris/actions-gh-pages@v4
+      # 3 Upload Pages artifact (first‑party action, no deprecated outputs)
+      - uses: actions/upload-pages-artifact@v2
         with:
-          github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: site
-          publish_branch: gh-pages
+          path: site
+
+###############################################################################
+# Job 3 ─ Deploy artifact to GitHub Pages
+###############################################################################
+  deploy-pages:
+    needs: build-site
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
