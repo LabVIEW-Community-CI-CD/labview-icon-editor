@@ -39,7 +39,8 @@ jobs:
         git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
         sed -i 's/go 1.24.1/go 1.24/' git-hours-src/go.mod
         (cd git-hours-src && go install .)
-        git-hours --version
+        # Verify the binary is runnable (v0.1.2 has no --version flag)
+        git-hours -h | head -n 1
 
     # 4 Run git‑hours → raw.txt
     - name: Generate raw report
