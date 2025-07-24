@@ -163,7 +163,7 @@ jobs:
         df = pd.DataFrame(rows, columns=['author', 'hours'])
 
         # -------- identify NI vs external --------
-        ORG   = os.getenv('ORG_NAME', 'ni')
+        ORG   = os.getenv('ORG_NAME', 'no')
         TOKEN = os.getenv('GH_TOKEN')
         HEAD  = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
 
