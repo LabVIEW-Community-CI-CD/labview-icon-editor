@@ -74,7 +74,7 @@ jobs:
 
       # 7️⃣ (Optional) Commit to metrics branch
       - name: Commit to metrics branch
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/develop'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}  # PAT needed for write access
         run: |
