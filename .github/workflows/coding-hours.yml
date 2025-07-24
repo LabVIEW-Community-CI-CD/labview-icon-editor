@@ -3,7 +3,7 @@ name: Coding‑hours report
 
 on:
   schedule:
-    - cron: '0 0 * * 1'                # every Monday at 00:00 UTC
+    - cron: '0 0 * * 1'                # every Monday at 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
@@ -13,43 +13,38 @@ on:
 permissions:
   contents: write                       # needed for pushes to metrics & gh‑pages
 
-###############################################################################
-# Job 1 – produce JSON report, badge, and commit to `metrics`
-###############################################################################
 jobs:
+###############################################################################
+# Job 1 – generate JSON report, badge, commit to `metrics`
+###############################################################################
   report:
     runs-on: ubuntu-latest
 
     steps:
-      # 1) Full repo checkout
+      # 1) Check out the repo
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2) Go toolchain
-      - uses: actions/setup-go@v4
+      # 2) Node toolchain (git‑hours is a Node CLI)
+      - uses: actions/setup-node@v4
         with:
-          go-version: '1.24'
+          node-version: '20'
 
-      # 3) Build **latest** git‑hours (JSON flag supported)
-      - name: Install git‑hours (latest)
-        run: |
-          go install github.com/trinhminhtriet/git-hours@latest
-
-      # 4) Ensure jq (already present on ubuntu‑latest, but keep for self‑hosted)
+      # 3) Make sure jq is present (ubuntu‑latest already has it, but self‑hosted may not)
       - name: Ensure jq
         run: sudo apt-get update -y && sudo apt-get install -y jq
 
-      # 5) Generate JSON report
+      # 4) Generate JSON report (git‑hours prints JSON by default)
       - name: Generate git‑hours report
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
-            ARGS+=" -since ${{ github.event.inputs.window_start }}"
+            ARGS+=" --since ${{ github.event.inputs.window_start }}"
           fi
-          git-hours --json $ARGS > git-hours.json
+          npx --yes git-hours $ARGS > git-hours.json
 
-      # 6) Build Shields.io badge
+      # 5) Build Shields.io badge
       - name: Build badge.json
         run: |
           HOURS=$(jq '.total.hours' git-hours.json)
@@ -62,7 +57,7 @@ jobs:
           }
           EOF
 
-      # 7) Summarise in the run log
+      # 6) Human‑readable summary in the run log
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
@@ -72,18 +67,18 @@ jobs:
             | @tsv' git-hours.json |
           column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-      # 8) Upload JSON for the Pages job
+      # 7) Upload JSON so the Pages job can fetch it
       - uses: actions/upload-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: git-hours.json
           retention-days: 30
 
-      # 9) Commit badge + dated snapshot to the `metrics` branch
+      # 8) Commit badge + dated snapshot to the `metrics` branch
       - name: Commit metrics and badge
         if: github.ref == 'refs/heads/develop'      # adjust if needed
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT with repo scope
+          GH_TOKEN: ${{ secrets.GH_PAT }}            # Personal Access Token with repo scope
         run: |
           git config --global user.name  "git-hours bot"
           git config --global user.email "bot@github.com"
@@ -98,7 +93,7 @@ jobs:
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
 
 ###############################################################################
-# Job 2 – build static site and publish to GitHub Pages (`gh-pages` branch)
+# Job 2 – build static site and publish to GitHub Pages (`gh-pages`)
 ###############################################################################
   build-pages:
     needs: report
@@ -112,7 +107,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
-          path: tmp                                   # tmp/git-hours.json
+          path: tmp                                   # → tmp/git-hours.json
 
       # 2) Build static dashboard
       - name: Build KPIs site
