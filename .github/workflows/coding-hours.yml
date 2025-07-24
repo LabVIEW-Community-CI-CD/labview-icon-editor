@@ -1,9 +1,8 @@
-# .github/workflows/coding‑hours.yml
 name: Coding‑hours report
 
 on:
   schedule:
-    - cron: '0 0 * * 1'          # every Monday at 00:00 UTC
+    - cron: '0 0 * * 1'                # every Monday at 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
@@ -15,35 +14,39 @@ permissions:
   contents: write
 
 ###############################################################################
-# Job 1 ‑ Produce JSON report, badge, and commit to `metrics`
+# Job 1 – produce JSON report, badge, and commit to `metrics`
 ###############################################################################
 jobs:
   report:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Full repo checkout
-      - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+      # 1) Full repo checkout
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-      # 2️⃣ Go toolchain (git‑hours needs ≥1.24)
-      - uses: actions/setup-go@v4
-        with: { go-version: '1.24' }
+      # 2) Go toolchain (git‑hours needs ≥ 1.24)
+      - name: Setup Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
 
-      # 3️⃣ Build git‑hours v0.1.2
-      - name: Install git‑hours
+      # 3) Build git‑hours v0.1.2
+      - name: Install git-hours
         run: |
           git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
           cd git-hours-src
           sed -i 's/go 1.24.1/go 1.24/' go.mod
           go install .
 
-      # 4️⃣ Ensure jq is present (usually pre‑installed on ubuntu‑latest)
-      - run: sudo apt-get update && sudo apt-get install -y jq
-        name: Install jq (if missing)
+      # 4) jq (present on ubuntu‑latest, but install explicitly for safety)
+      - name: Ensure jq
+        run: sudo apt-get update && sudo apt-get install -y jq
 
-      # 5️⃣ Generate JSON report (adds --json flag)
-      - name: Generate git‑hours report
+      # 5) Generate JSON report
+      - name: Generate git-hours report
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
@@ -51,7 +54,7 @@ jobs:
           fi
           git-hours --json $ARGS > git-hours.json
 
-      # 6️⃣ Build Shields.io badge from the JSON
+      # 6) Build Shields.io badge
       - name: Build badge.json
         run: |
           HOURS=$(jq '.total.hours' git-hours.json)
@@ -64,7 +67,7 @@ jobs:
           }
           EOF
 
-      # 7️⃣ Nice summary in the Actions run log
+      # 7) Human‑readable summary in the run log
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
@@ -74,49 +77,51 @@ jobs:
             | @tsv' git-hours.json |
           column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-      # 8️⃣ Upload JSON so the next job can fetch it
-      - uses: actions/upload-artifact@v4
+      # 8) Upload JSON for the next job
+      - name: Upload report artifact
+        uses: actions/upload-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: git-hours.json
           retention-days: 30
 
-      # 9️⃣ Commit badge + dated snapshot to the `metrics` branch
-      - name: Commit metrics & badge
-        if: github.ref == 'refs/heads/develop'        # run only on develop
-        env: { GH_TOKEN: ${{ secrets.GH_PAT }} }      # PAT must have repo scope
+      # 9) Commit badge + dated snapshot to the `metrics` branch
+      - name: Commit metrics and badge
+        if: github.ref == 'refs/heads/develop'      # adjust branch as needed
+        env:
+          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT must have repo scope
         run: |
           git config --global user.name  "git-hours bot"
           git config --global user.email "bot@github.com"
 
-          # Switch (or create) metrics branch
           git fetch origin metrics || true
           git switch metrics 2>/dev/null || git switch -c metrics
 
           mkdir -p reports
-          mv git-hours.json reports/git-hours-$(date +%F).json
+          mv git-hours.json "reports/git-hours-$(date +%F).json"
           git add reports badge.json
           git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
 
 ###############################################################################
-# Job 2 ‑ Build static site and publish to GitHub Pages (`gh-pages` branch)
+# Job 2 – build static site and publish to GitHub Pages (`gh-pages` branch)
 ###############################################################################
   build-pages:
     needs: report
     runs-on: ubuntu-latest
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      # Pull the JSON we just generated
+      # 1) Pull the JSON we just generated
       - name: Download report artifact
         uses: actions/download-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: tmp                                   # tmp/git-hours.json
 
-      # Build simple static dashboard
+      # 2) Build simple static dashboard
       - name: Build KPIs site
         run: |
           mkdir -p site/data
@@ -124,7 +129,6 @@ jobs:
 
           python - <<'PY'
           import json, datetime, pathlib, html
-
           raw   = json.load(open('tmp/git-hours.json'))
           total = raw["total"]
 
@@ -135,39 +139,39 @@ jobs:
 
           page = f"""<!doctype html>
           <html lang='en'>
-          <head>
-            <meta charset='utf-8'>
-            <title>Collaborator KPIs</title>
-            <link rel='stylesheet'
-                  href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
-            <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
-          </head>
-          <body>
-            <main>
-              <h1>Collaborator KPIs</h1>
-              <p><em>Last updated {datetime.datetime.utcnow():%Y-%m-%d %H:%M UTC}</em></p>
+            <head>
+              <meta charset='utf-8'>
+              <title>Collaborator KPIs</title>
+              <link rel='stylesheet'
+                    href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
+              <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
+            </head>
+            <body>
+              <main>
+                <h1>Collaborator KPIs</h1>
+                <p><em>Last updated {datetime.datetime.utcnow():%Y-%m-%d %H:%M UTC}</em></p>
 
-              <h2>Totals</h2>
-              <ul>
-                <li><strong>Hours</strong>: {total['hours']}</li>
-                <li><strong>Commits</strong>: {total['commits']}</li>
-                <li><strong>Contributors</strong>: {len(raw) - 1}</li>
-              </ul>
+                <h2>Totals</h2>
+                <ul>
+                  <li><strong>Hours</strong>: {total['hours']}</li>
+                  <li><strong>Commits</strong>: {total['commits']}</li>
+                  <li><strong>Contributors</strong>: {len(raw) - 1}</li>
+                </ul>
 
-              <h2>Per‑contributor breakdown</h2>
-              <table class='sortable'>
-                <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
-                <tbody>{rows}</tbody>
-              </table>
+                <h2>Per‑contributor breakdown</h2>
+                <table class='sortable'>
+                  <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
+                  <tbody>{rows}</tbody>
+                </table>
 
-              <p>Historical JSON snapshots live in <code>/data</code>.</p>
-            </main>
-          </body>
+                <p>Historical JSON snapshots live in <code>/data</code>.</p>
+              </main>
+            </body>
           </html>"""
           pathlib.Path('site/index.html').write_text(page)
           PY
 
-      # Deploy static folder to gh‑pages
+      # 3) Deploy static folder to gh‑pages
       - name: Publish to GitHub Pages
         uses: peaceiris/actions-gh-pages@v4
         with:
