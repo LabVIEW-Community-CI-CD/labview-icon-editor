@@ -20,10 +20,10 @@ concurrency:
   group: coding-hours-${{ github.ref_name }}
   cancel-in-progress: true
 
-# ––‑ Minimum scopes; add read:org via Settings → Actions → Workflow permissions
+# near the top of the workflow
 permissions:
   contents: write
-  actions: read
+  actions: write      # ⬅︎ changed from “read” to “write” so we may delete artifacts
   id-token: write
 
 env:
@@ -82,21 +82,27 @@ jobs:
         git-hours -since "${{ steps.dates.outputs.since }}" \
                   -until "${{ steps.dates.outputs.until }}" > git-hours.txt
 
-    # 7️⃣ Show raw report in the run summary
-    - name: Add raw report to summary
+    ##################################################################
+    #  🔄  Clean up artefact from previous attempts  (git-hours)
+    ##################################################################
+    - name: Delete stale git-hours artefact
+      if: always()              # run even after previous failures
+      env:
+        GH_TOKEN: ${{ github.token }}
       run: |
-        {
-          echo "## ⏱ Coding‑hours report (raw)"
-          echo "_${{ steps.dates.outputs.since }} → ${{ steps.dates.outputs.until }}_"
-          echo '```text'
-          cat git-hours.txt
-          echo '```'
-        } >> "$GITHUB_STEP_SUMMARY"
+        set -e
+        ART="git-hours-${{ github.run_id }}"
+        ids=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+              --jq ".artifacts[] | select(.name==\"$ART\") | .id")
+        for id in $ids; do
+          echo "Deleting artefact id=$id → $ART"
+          gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
+        done
 
-    # 8️⃣ Upload raw report as artefact
+    #  (unchanged) Upload the fresh report
     - uses: actions/upload-artifact@v4
       with:
-        name: git-hours-output-${{ github.run_id }}
+        name: git-hours-${{ github.run_id }}
         path: git-hours.txt
         retention-days: 30
 
@@ -212,7 +218,7 @@ jobs:
     # 9️⃣ Upload anonymisation map
     - uses: actions/upload-artifact@v4
       with:
-        name: anonymisation-map-${{ github.run_id }}
+        name: anonymisation-map-${{ github.run_id }}-${{ github.run_attempt }}
         path: ${{ steps.make-graphs.outputs.json }}
         retention-days: 90
 
