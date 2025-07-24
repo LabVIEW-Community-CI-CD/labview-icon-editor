@@ -1,29 +1,31 @@
-# -------------------------------------------------------------
-#  Coding‑hours report – with anonymised bar & stacked‑trend PNGs
-# -------------------------------------------------------------
+# --------------------------------------------------------------------------
+#  Coding‑hours report  – full workflow
+# --------------------------------------------------------------------------
 name: Coding‑hours report
 
 on:
+  # weekly cron + manual trigger
   schedule:
-    - cron: '0 0 * * 1'                         # every Monday 00:00 UTC
+    - cron: '0 0 * * 1'           # Monday 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
-        description: 'Analyse commits since YYYY‑MM‑DD (defaults to last Monday)'
+        description: 'Analyse commits since YYYY‑MM‑DD (optional)'
         required: false
       window_end:
-        description: 'Analyse commits until YYYY‑MM‑DD (defaults to today)'
+        description: 'Analyse commits up to YYYY‑MM‑DD (optional)'
         required: false
 
-# ––‑ Never run two reports in parallel on the same ref
+# --------------------------------------------------------------------------
+#  Global settings
+# --------------------------------------------------------------------------
 concurrency:
   group: coding-hours-${{ github.ref_name }}
   cancel-in-progress: true
 
-# near the top of the workflow
 permissions:
   contents: write
-  actions: write      # ⬅︎ changed from “read” to “write” so we may delete artifacts
+  actions: write        # needed for artefact DELETE
   id-token: write
 
 env:
@@ -38,18 +40,24 @@ jobs:
         shell: bash
 
     steps:
-    # 1️⃣ Full clone so git‑hours can read history
+    # --------------------------------------------------------------------
+    # 1️⃣  Repository checkout (full history for git‑hours)
+    # --------------------------------------------------------------------
     - uses: actions/checkout@v4
       with:
         fetch-depth: 0
 
-    # 2️⃣ Go + module cache
+    # --------------------------------------------------------------------
+    # 2️⃣  Go toolchain + module cache
+    # --------------------------------------------------------------------
     - uses: actions/setup-go@v5
       with:
         go-version: ${{ env.GO_VERSION }}
         cache: true
 
-    # 3️⃣ Cache compiled git‑hours binary
+    # --------------------------------------------------------------------
+    # 3️⃣  Cache compiled git‑hours binary
+    # --------------------------------------------------------------------
     - name: Cache git‑hours
       id: cache-githours
       uses: actions/cache@v4
@@ -57,15 +65,16 @@ jobs:
         path: ~/go/bin/git-hours
         key: git-hours-${{ env.GO_VERSION }}-${{ env.GITHOURS_VERSION }}
 
-    # 4️⃣ Build git‑hours if cache missed
-    - name: Install git‑hours
+    - name: Install git‑hours (patched go.mod)
       if: steps.cache-githours.outputs.cache-hit != 'true'
       run: |
         git clone --depth 1 --branch $GITHOURS_VERSION https://github.com/trinhminhtriet/git-hours.git /tmp/git-hours
-        sed -i 's/go 1\.24\.1/go 1.24/' /tmp/git-hours/go.mod       # normalise
+        sed -i 's/go 1\.24\.1/go 1.24/' /tmp/git-hours/go.mod
         (cd /tmp/git-hours && go install .)
 
-    # 5️⃣ Compute reporting window (defaults: last‑Monday → today)
+    # --------------------------------------------------------------------
+    # 4️⃣  Compute reporting window
+    # --------------------------------------------------------------------
     - name: Compute date window
       id: dates
       run: |
@@ -73,24 +82,36 @@ jobs:
         until="${{ github.event.inputs.window_end }}"
         [[ -z "$since" ]] && since=$(date -u -d "last monday" +%F)
         [[ -z "$until" ]] && until=$(date -u +%F)
-        echo "since=$since"  >> $GITHUB_OUTPUT
-        echo "until=$until"  >> $GITHUB_OUTPUT
+        echo "since=$since" >> "$GITHUB_OUTPUT"
+        echo "until=$until" >> "$GITHUB_OUTPUT"
 
-    # 6️⃣ Generate raw report
+    # --------------------------------------------------------------------
+    # 5️⃣  Generate raw git‑hours.txt report
+    # --------------------------------------------------------------------
     - name: Generate git‑hours report
       run: |
         git-hours -since "${{ steps.dates.outputs.since }}" \
                   -until "${{ steps.dates.outputs.until }}" > git-hours.txt
 
-    ##################################################################
-    #  🔄  Clean up artefact from previous attempts  (git-hours)
-    ##################################################################
-    - name: Delete stale git-hours artefact
-      if: always()              # run even after previous failures
+    - name: Add raw report to summary
+      run: |
+        {
+          echo "## ⏱ Coding‑hours report"
+          echo "_${{ steps.dates.outputs.since }} → ${{ steps.dates.outputs.until }}_"
+          echo ''
+          echo '```text'
+          cat git-hours.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
+    # --------------------------------------------------------------------
+    # 6️⃣  Upload raw report  (delete stale first to avoid 409)
+    # --------------------------------------------------------------------
+    - name: Delete stale git‑hours artefact
+      if: always()
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        set -e
         ART="git-hours-${{ github.run_id }}"
         ids=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
               --jq ".artifacts[] | select(.name==\"$ART\") | .id")
@@ -99,18 +120,16 @@ jobs:
           gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
         done
 
-    #  (unchanged) Upload the fresh report
     - uses: actions/upload-artifact@v4
       with:
         name: git-hours-${{ github.run_id }}
         path: git-hours.txt
         retention-days: 30
 
-
-    ##################################################################
-    #  📊 Build & embed bar + stacked‑trend graphs, save mask map
-    ##################################################################
-    - uses: actions/setup-python@v5        # ~15 s if cache warm
+    # --------------------------------------------------------------------
+    # 7️⃣  Python + visual graphs (bar + stacked ISO‑week trend)
+    # --------------------------------------------------------------------
+    - uses: actions/setup-python@v5
       with:
         python-version: '3.12'
         cache: 'pip'
@@ -121,7 +140,7 @@ jobs:
     - name: Build comparison graphs
       id: make-graphs
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT || github.token }}
+        GH_TOKEN: ${{ secrets.GH_PAT || github.token }}   # needs read:org
         ORG_NAME: ni
       run: |
         python - <<'PY'
@@ -130,94 +149,98 @@ jobs:
 
         RAW = pathlib.Path('git-hours.txt').read_text()
 
-        # ---------- 1. Parse git-hours output ----------
+        # -------- parse git-hours output --------
         def parse(raw):
-            try:                                    # JSON variant
+            try:
                 data = json.loads(raw)
-                return [(k, v['hours']) for k, v in data.items()
-                        if k.lower() not in ('total',)]
+                return [(k, v['hours']) for k, v in data.items() if k.lower() not in ('total',)]
             except json.JSONDecodeError:
                 pat = re.compile(r'^\s*(.*?)\s+(\d+(?:\.\d+)?)\s*h', re.I)
                 return [(m.group(1).strip(), float(m.group(2)))
                         for m in map(pat.match, raw.splitlines()) if m]
+
         rows = parse(RAW)
         if not rows:
             print('::warning::No author/hour rows parsed'); exit(0)
         df_now = pd.DataFrame(rows, columns=['author', 'hours'])
 
-        # ---------- 2. Deterministic anonymisation ----------
-        ORG = os.getenv('ORG_NAME', 'ni')
-        TOKEN = os.getenv('GH_TOKEN'); HDR = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
-        def member(user): return requests.get(f'https://api.github.com/orgs/{ORG}/members/{user}', headers=HDR).status_code == 204
+        # -------- anonymise non‑NI contributors --------
+        ORG   = os.getenv('ORG_NAME', 'ni')
+        TOKEN = os.getenv('GH_TOKEN')
+        HEAD  = {'Authorization': f'Bearer {TOKEN}'} if TOKEN else {}
+        def member(user):
+            return requests.get(f'https://api.github.com/orgs/{ORG}/members/{user}', headers=HEAD).status_code == 204
         mask = lambda name: f'Contributor_{hashlib.sha1(name.encode()).hexdigest()[:6]}'
-        mapping = {a: (a if member(a.split('<')[0].strip()) else mask(a)) for a in df_now['author']}
+        mapping = {a: (a if member(a.split("<")[0].strip()) else mask(a)) for a in df_now['author']}
         df_now['label'] = df_now['author'].map(mapping)
 
-        # ---------- 3. Bar chart (current window) ----------
+        # -------- bar chart (current window) --------
         df_now.sort_values('hours', inplace=True)
         fig1, ax1 = plt.subplots(figsize=(6, max(2, .35*len(df_now))))
         ax1.barh(df_now['label'], df_now['hours'])
-        ax1.set_xlabel('Hours'); ax1.set_title('Hours per contributor'); plt.tight_layout()
+        ax1.set_xlabel('Hours'); ax1.set_title('Hours per contributor')
+        plt.tight_layout()
 
-        # ---------- 4. Build stacked weekly trend (last 8 ISO weeks) ----------
-        def week_key(d):                       # ISO week label "YYYY‑Www"
-            iso = dt.date.fromisoformat(d).isocalendar()
+        # -------- stacked ISO‑week trend (last 8) --------
+        def wk(date_str):
+            iso = dt.date.fromisoformat(date_str).isocalendar()
             return f"{iso.year}-W{iso.week:02d}"
 
         def parse_file(fp):
             return {mapping.get(a, mask(a)): h for a, h in parse(fp.read_text())}
 
         hist = collections.defaultdict(lambda: collections.Counter())
-        reports = pathlib.Path('reports')
-        if reports.exists():
-            for f in reports.glob('git-hours-*_to_*.txt'):
+        rpt_dir = pathlib.Path('reports')
+        if rpt_dir.exists():
+            for f in rpt_dir.glob('git-hours-*_to_*.txt'):
                 end = f.stem.split('_to_')[-1]
-                hist[week_key(end)].update(parse_file(f))
+                hist[wk(end)].update(parse_file(f))
 
-        current_week = week_key('${{ steps.dates.outputs.until }}')
-        hist[current_week].update(df_now.set_index('label')['hours'].to_dict())
+        this_week = wk('${{ steps.dates.outputs.until }}')
+        hist[this_week].update(df_now.set_index('label')['hours'].to_dict())
 
-        # keep last 8 weeks chronologically
         weeks = sorted(hist.keys())[-8:]
+        fig2 = None
         if weeks:
             pivot = pd.DataFrame([{**{'week': w}, **hist[w]} for w in weeks]).fillna(0)
             pivot.set_index('week', inplace=True)
-
             fig2, ax2 = plt.subplots(figsize=(6,3))
             labels = pivot.columns
             ax2.stackplot(pivot.index, *[pivot[c] for c in labels], labels=labels)
             ax2.legend(fontsize=6, loc='upper left', bbox_to_anchor=(1,1))
-            ax2.set_ylabel('Hours'); ax2.set_title('Weekly coding‑hours (last 8 ISO weeks)')
+            ax2.set_ylabel('Hours')
+            ax2.set_title('Weekly coding‑hours (last 8 ISO weeks)')
             plt.xticks(rotation=45, ha='right'); plt.tight_layout()
-        else:
-            fig2 = None
 
-        # ---------- 5. Encode → Base64 and append to summary ----------
-        def b64(fig):
+        # -------- embed PNGs in job summary --------
+        def to_b64(fig):
             buf = io.BytesIO(); fig.savefig(buf, format='png', dpi=140)
             return base64.b64encode(buf.getvalue()).decode()
 
-        summary = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY'])
-        with summary.open('a') as s:
+        summ = pathlib.Path(os.environ['GITHUB_STEP_SUMMARY'])
+        with summ.open('a') as s:
             s.write('## 📊 Coding‑hours visual summary\n')
-            s.write(f'<img alt="bar"   src="data:image/png;base64,{b64(fig1)}"/>\n\n')
-            if fig2: s.write(f'<img alt="trend" src="data:image/png;base64,{b64(fig2)}"/>\n')
+            s.write(f'<img alt="bar"   src="data:image/png;base64,{to_b64(fig1)}"/>\n\n')
+            if fig2:
+                s.write(f'<img alt="trend" src="data:image/png;base64,{to_b64(fig2)}"/>\n')
 
-        # ---------- 6. Store anonymisation map ----------
+        # -------- persist anonymisation map --------
         json_path = f'anonym-map-${{ github.run_id }}.json'
-        json.dump(mapping, open(json_path,'w'), indent=2)
-        print(f'::set-output name=json::{json_path}')
+        json.dump(mapping, open(json_path, 'w'), indent=2)
+
+        # expose as step output (GITHUB_OUTPUT)
+        with open(os.getenv("GITHUB_OUTPUT"), "a") as fh:
+            fh.write(f"json={json_path}\n")
         PY
 
-    ##################################################################
-    #  🔄  Clean up artefact from previous attempts  (anonym‑map)
-    ##################################################################
+    # --------------------------------------------------------------------
+    # 8️⃣  Upload anonymisation map  (delete stale first)
+    # --------------------------------------------------------------------
     - name: Delete stale anonymisation map
       if: always()
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
-        set -e
         ART="anonymisation-map-${{ github.run_id }}"
         ids=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
               --jq ".artifacts[] | select(.name==\"$ART\") | .id")
@@ -226,30 +249,30 @@ jobs:
           gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
         done
 
-    # 9️⃣ Upload anonymisation map
     - uses: actions/upload-artifact@v4
       with:
-        name: anonymisation-map-${{ github.run_id }}-${{ github.run_attempt }}
+        name: anonymisation-map-${{ github.run_id }}
         path: ${{ steps.make-graphs.outputs.json }}
         retention-days: 90
 
-    # 🔟 (Optional) commit raw report for long‑term trend
+    # --------------------------------------------------------------------
+    # 9️⃣  (Optional) commit reports to metrics branch
+    # --------------------------------------------------------------------
     - name: Commit to metrics branch
       if: github.ref_name == 'main'
       env:
-        GH_TOKEN: ${{ secrets.GH_PAT }}
+        GH_TOKEN: ${{ secrets.GH_PAT }}  # PAT with repo write
       run: |
         if [ -z "$GH_TOKEN" ]; then
-          echo "GH_PAT secret not set – skipping metrics commit"; exit 0
+          echo "GH_PAT secret not set — skipping metrics commit"
+          exit 0
         fi
         git config --global user.name  "git‑hours bot"
         git config --global user.email "bot@github.com"
         git fetch origin metrics || true
         git switch -C metrics origin/metrics || git switch -C metrics
         mkdir -p reports
-        cp git-hours.txt \
-          "reports/git-hours-${{ steps.dates.outputs.since }}_to_${{ steps.dates.outputs.until }}.txt"
+        cp git-hours.txt "reports/git-hours-${{ steps.dates.outputs.since }}_to_${{ steps.dates.outputs.until }}.txt"
         git add reports
-        git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" \
-          || { echo "No new data"; exit 0; }
+        git commit -m "chore(metrics): coding hours ${{ steps.dates.outputs.since }}→${{ steps.dates.outputs.until }}" || echo "No changes"
         git push "https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }}" HEAD:metrics
