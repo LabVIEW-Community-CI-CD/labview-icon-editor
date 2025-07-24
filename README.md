@@ -3,6 +3,8 @@
 [![Build VI Package](https://github.com/ni/labview-icon-editor/actions/workflows/ci.yml/badge.svg)](https://github.com/ni/labview-icon-editor/actions/workflows/build-vi-package.yml)
 [![Latest Release](https://img.shields.io/github/v/release/ni/labview-icon-editor?label=release)](https://github.com/ni/labview-icon-editor/releases/latest)
 [![Discord](https://img.shields.io/discord/1319915996789739540?label=chat&logo=discord&style=flat)](https://discord.gg/q4d3ggrFVA)
+![Coding hours](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/svelderrainruiz/labview-icon-editor/metrics/badge.json)
+
 
 ---
 
