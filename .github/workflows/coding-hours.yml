@@ -1,69 +1,64 @@
-# .github/workflows/coding‑hours.yml
 name: Coding‑hours report
 
 on:
   schedule:
-    - cron: '0 0 * * 1'          # every Monday 00:00 UTC
+    - cron: '0 0 * * 1'          # every Monday 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
         description: 'Report since YYYY‑MM‑DD'
         required: false
 
+# GITHUB_TOKEN gets write access for branch pushes
 permissions:
-  contents: write                # push to metrics & gh‑pages
+  contents: write
 
-###############################################################################
-# Job 1 – produce JSON report, badge, commit to `metrics`
-###############################################################################
 jobs:
+###############################################################################
+# Job 1 ─ Generate JSON, create badge, commit to `metrics`
+###############################################################################
   report:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Full checkout
+      # 1 Checkout full history
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }
 
-      # 2️⃣ System libraries required by openssl‑sys  ➜ libssl‑dev + pkg‑config
-      - name: Install build dependencies
+      # 2 System deps for the Rust OpenSSL binding + jq for later
+      - name: Install build prerequisites
         run: |
           sudo apt-get update -y
-          sudo apt-get install -y libssl-dev pkg-config
+          sudo apt-get install -y libssl-dev pkg-config jq
 
-      # 3️⃣ Rust tool‑chain (tiny footprint)
+      # 3 Minimal Rust tool‑chain (≈50 MB)
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
 
-      # 3️⃣ Install jikyuu (≈ 20 s compile)
+      # 4 Install jikyuu (≈20 s compile)
       - name: Install jikyuu
         run: cargo install --locked jikyuu
 
-      # 4️⃣ jq (already on ubuntu‑latest, but add for self‑hosted)
-      - run: sudo apt-get update -y && sudo apt-get install -y jq
-        name: Ensure jq
-
-      # 5️⃣ Generate raw JSON with jikyuu
+      # 5 Generate raw report (per‑email)
       - name: Generate coding‑hours JSON
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
             ARGS+=" --since ${{ github.event.inputs.window_start }}"
           fi
-          # jikyuu JSON  → array, reshape to the structure your badges expect
-          jikyuu --format json $ARGS | \
-            jq 'reduce .[] as $i ({"total":{"name":"","hours":0,"commits":0}};
-                 .[$i.email]   = {name:$i.email,
-                                  hours:($i.hours|floor),
-                                  commits:$i.commit_count}
-                 | .total.hours   += ($i.hours|floor)
-                 | .total.commits += $i.commit_count)' \
-            > git-hours.json
 
-      # 6️⃣ Build Shields.io badge
+          jikyuu --format json $ARGS \
+          | jq 'reduce .[] as $c ({"total":{"hours":0,"commits":0}};
+                 .[$c.email] = {hours:($c.hours|floor),
+                                commits:$c.commit_count}
+                 | .total.hours   += ($c.hours|floor)
+                 | .total.commits += $c.commit_count)' \
+          > git-hours.json
+
+      # 6 Build Shields.io badge
       - name: Build badge.json
         run: |
           HOURS=$(jq '.total.hours' git-hours.json)
@@ -74,30 +69,30 @@ jobs:
             "color":"informational" }
           EOF
 
-      # 7️⃣ Nice summary on the run page
+      # 7 Readable table in the job summary
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
           jq -r '
-            ["Contributor","Hours","Commits"],
             to_entries
             | map(select(.key!="total"))
-            | map([ .key, (.value.hours|tostring), (.value.commits|tostring) ])
-            | .[]
+            | sort_by(-.value.hours)
+            | (["Contributor","Hours","Commits"]
+               , (map([.key, (.value.hours|tostring), (.value.commits|tostring)])))
             | @tsv' git-hours.json | column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-      # 8️⃣ Upload artifact for the Pages job
+      # 8 Upload for the Pages job
       - uses: actions/upload-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: git-hours.json
           retention-days: 30
 
-      # 9️⃣ Commit badge + snapshot to `metrics`
+      # 9 Commit badge + snapshot to metrics (develop only)
       - name: Commit metrics & badge
-        if: github.ref == 'refs/heads/develop'        # change if needed
+        if: github.ref == 'refs/heads/develop'
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}             # PAT with repo scope
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           git config --global user.name  "git-hours bot"
           git config --global user.email "bot@github.com"
@@ -106,13 +101,13 @@ jobs:
           git switch metrics 2>/dev/null || git switch -c metrics
 
           mkdir -p reports
-          mv git-hours.json "reports/git-hours-$(date +%F).json"
+          cp git-hours.json "reports/git-hours-$(date +%F).json"
           git add reports badge.json
-          git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
-          git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
+          git commit -m "chore(metrics): report $(date +%F)" || echo "No change"
+          git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
 
 ###############################################################################
-# Job 2 – build static site and publish to GitHub Pages (`gh-pages`)
+# Job 2 ─ Build static dashboard (with bar‑chart) & deploy to GitHub Pages
 ###############################################################################
   build-pages:
     needs: report
@@ -121,26 +116,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1️⃣ Pull the JSON we just produced
+      # 1 Download JSON from previous job
       - uses: actions/download-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
-          path: tmp                                   # tmp/git-hours.json
+          path: tmp                       # → tmp/git-hours.json
 
-      # 2️⃣ Build the simple HTML dashboard
+      # 2 Assemble site
       - name: Build KPIs site
         run: |
+          DATE=$(date +%F)
           mkdir -p site/data
-          cp tmp/git-hours.json "site/data/git-hours-$(date +%F).json"
+          cp tmp/git-hours.json "site/data/git-hours-${DATE}.json"
+          cp tmp/git-hours.json  site/git-hours-latest.json   # easy fetch for chart
 
           python - <<'PY'
           import json, datetime, pathlib, html, textwrap
-          raw = json.load(open('tmp/git-hours.json'))
-          total = raw['total']
+          raw   = json.load(open('tmp/git-hours.json'))
+          total = raw["total"]
+          #  Collect data for JS
+          labels = [html.escape(k) for k in raw.keys() if k != "total"]
+          hours  = [raw[k]["hours"] for k in labels]
+
           rows = "\n".join(
-              f"<tr><td>{html.escape(k)}</td>"
-              f"<td>{v['hours']}</td><td>{v['commits']}</td></tr>"
-              for k,v in raw.items() if k != 'total')
+              f"<tr><td>{l}</td><td>{raw[l]['hours']}</td><td>{raw[l]['commits']}</td></tr>"
+              for l in labels)
+
           page = f"""
           <!doctype html><html lang='en'><head>
             <meta charset='utf-8'>
@@ -148,26 +149,50 @@ jobs:
             <link rel='stylesheet'
                   href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
             <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
+            <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
           </head><body><main>
             <h1>Collaborator KPIs</h1>
             <p><em>Last updated {datetime.datetime.utcnow():%Y‑%m‑%d %H:%M UTC}</em></p>
+
             <h2>Totals</h2>
             <ul>
               <li><strong>Hours</strong>: {total['hours']}</li>
               <li><strong>Commits</strong>: {total['commits']}</li>
               <li><strong>Contributors</strong>: {len(raw)-1}</li>
             </ul>
-            <h2>Per‑contributor breakdown</h2>
+
+            <h2>Hours per contributor</h2>
+            <canvas id='hoursChart' style='max-height:400px'></canvas>
+
+            <h2>Detail table</h2>
             <table class='sortable'>
               <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
               <tbody>{rows}</tbody>
             </table>
+
             <p>Historical JSON snapshots live in <code>/data</code>.</p>
+
+            <script>
+              fetch('git-hours-latest.json')
+                .then(r => r.json())
+                .then(d => {{
+                  const labels = Object.keys(d).filter(k => k !== 'total');
+                  const hours  = labels.map(l => d[l].hours);
+                  new Chart(document.getElementById('hoursChart'), {{
+                    type: 'bar',
+                    data: {{
+                      labels: labels,
+                      datasets: [{{ label: 'Hours', data: hours }}]
+                    }},
+                    options: {{ responsive: true, maintainAspectRatio: false }}
+                  }});
+                }});
+            </script>
           </main></body></html>"""
           pathlib.Path('site/index.html').write_text(textwrap.dedent(page))
           PY
 
-      # 3️⃣ Publish to gh‑pages
+      # 3 Deploy via gh‑pages branch
       - uses: peaceiris/actions-gh-pages@v4
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
