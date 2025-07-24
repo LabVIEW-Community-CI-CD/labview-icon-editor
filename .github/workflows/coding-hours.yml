@@ -10,7 +10,7 @@ on:
         required: false
 
 permissions:
-  contents: write                # needed only if you keep the commit step
+  contents: write                # needed for committing to the metrics branch
 
 jobs:
   report:
@@ -44,6 +44,19 @@ jobs:
           fi
           git-hours $ARGS > git-hours.txt
 
+      # 4️⃣½ Build a Shields.io badge from the JSON report
+      - name: Build badge.json
+        run: |
+          HOURS=$(jq '.total.hours' git-hours.txt)
+          cat > badge.json <<EOF
+          {
+            "schemaVersion": 1,
+            "label": "Coding hours",
+            "message": "${HOURS}h",
+            "color": "informational"
+          }
+          EOF
+
       # 5️⃣ Publish the raw report to the run summary
       - name: Add workflow summary
         run: |
@@ -61,7 +74,7 @@ jobs:
 
       # 7️⃣ (Optional) Commit to metrics branch
       - name: Commit to metrics branch
-        if: github.ref == 'refs/heads/main'
+        if: github.ref == 'refs/heads/develop'
         env:
           GH_TOKEN: ${{ secrets.GH_PAT }}  # PAT needed for write access
         run: |
@@ -70,6 +83,7 @@ jobs:
           git switch -C metrics || git checkout metrics
           mkdir -p reports
           mv git-hours.txt reports/git-hours-$(date +%F).txt
-          git add reports
+          # Keep badge.json at repo root (in metrics branch) for a stable URL
+          git add reports badge.json
           git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
