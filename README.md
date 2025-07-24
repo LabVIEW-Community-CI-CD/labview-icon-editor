@@ -29,7 +29,7 @@ The **LabVIEW Icon Editor** is an open-source, MIT-licensed project that release
 This means that your contributions—whether features, fixes, or docs—can ship with **official LabVIEW distributions**.
 
 - 🛠 Built entirely in G
-- ⚙️ GitHub Actions orchestrate PowerShell-based CI workflows for testing, packaging, and publishing `.vip` artifacts
+- ⚙️ GitHub Actions  orchestrate PowerShell-based CI workflows for testing, packaging, and publishing `.vip` artifacts
 - 🔁 This project pioneered CI/CD pipelines, documentation, and foundational infrastructure that will eventually migrate to a centralized dependency repository so that it can expand along with other concepts (e.g. lvenv)
 
 NI’s Open Source Program encourages **community collaboration** to evolve and improve this tooling that streamlines the way the LabVIEW community tests NI-governed features.
