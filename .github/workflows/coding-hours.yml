@@ -106,6 +106,7 @@ jobs:
         path: git-hours.txt
         retention-days: 30
 
+
     ##################################################################
     #  📊 Build & embed bar + stacked‑trend graphs, save mask map
     ##################################################################
@@ -208,12 +209,22 @@ jobs:
         print(f'::set-output name=json::{json_path}')
         PY
 
-    - uses: actions/upload-artifact@v4
-      with:
-        name: anonymisation-map-${{ github.run_id }}
-        path: ${{ steps.make-graphs.outputs.json }}
-        retention-days: 90
-
+    ##################################################################
+    #  🔄  Clean up artefact from previous attempts  (anonym‑map)
+    ##################################################################
+    - name: Delete stale anonymisation map
+      if: always()
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -e
+        ART="anonymisation-map-${{ github.run_id }}"
+        ids=$(gh api repos/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts \
+              --jq ".artifacts[] | select(.name==\"$ART\") | .id")
+        for id in $ids; do
+          echo "Deleting artefact id=$id → $ART"
+          gh api --method DELETE repos/${{ github.repository }}/actions/artifacts/$id
+        done
 
     # 9️⃣ Upload anonymisation map
     - uses: actions/upload-artifact@v4
