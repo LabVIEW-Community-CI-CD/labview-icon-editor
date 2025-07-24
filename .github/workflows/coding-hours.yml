@@ -10,39 +10,33 @@ on:
         required: false
 
 permissions:
-  contents: write                       # push to metrics & gh‑pages
+  contents: write
   pages: write
   id-token: write
 
 jobs:
 ###############################################################################
-# Job 1 – run git‑hours (Go), convert to JSON, commit badge + snapshot
+# Job 1 – run git‑hours (Go), build badge, commit to `metrics`
 ###############################################################################
   report:
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
 
     steps:
-    # 1 Checkout full history
     - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
+      with: { fetch-depth: 0 }
 
-    # 2 Go tool‑chain
     - uses: actions/setup-go@v4
-      with:
-        go-version: '1.24'
+      with: { go-version: '1.24' }
 
-    # 3 Install git‑hours v0.1.2 (patch go.mod for Go 1.24)
-    - name: Install git‑hours
+    - name: Install git‑hours v0.1.2
       run: |
         git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
         sed -i 's/go 1.24.1/go 1.24/' git-hours-src/go.mod
         (cd git-hours-src && go install .)
-        # Verify the binary is runnable (v0.1.2 has no --version flag)
+        # v0.1.2 has no --version flag; show help header instead
         git-hours -h | head -n 1
 
-    # 4 Run git‑hours → raw.txt
     - name: Generate raw report
       run: |
         ARGS=""
@@ -52,57 +46,55 @@ jobs:
         git-hours $ARGS > raw.txt
         cat raw.txt
 
-# 5️⃣ Convert raw.txt → git-hours.json  (auto‑detect JSON vs table)
+    # ──────────────────────────── PATCH ① auto‑detect JSON vs table ──
     - name: Convert to JSON
       run: |
         python - <<'PY'
         import json, re, pathlib
-        raw = pathlib.Path('raw.txt').read_text().strip()
+        raw_text = pathlib.Path('raw.txt').read_text().lstrip()
 
         def table_to_json(lines):
             obj, th, tc = {}, 0, 0
             for line in lines:
                 if not line or line.lower().startswith(('author','name','user','----','total')):
                     continue
-                parts = re.split(r'\s+', line)
+                parts = re.split(r'\s+', line.strip())
                 if len(parts) < 3:
                     continue
                 commits = int(parts[-1])
-                hrs     = int(parts[-2])
+                hours   = int(parts[-2])
                 email   = ' '.join(parts[:-2])
-                obj[email] = {"name": email, "hours": hrs, "commits": commits}
-                th += hrs; tc += commits
+                obj[email] = {"name": email, "hours": hours, "commits": commits}
+                th += hours; tc += commits
             obj["total"] = {"name":"", "hours": th, "commits": tc}
             return obj
 
-        try:                                   # Already JSON?
-            data = json.loads(raw)
-            if "total" not in data:            # add total if missing
+        try:                                   # already JSON?
+            data = json.loads(raw_text)
+            if "total" not in data:
                 th = sum(v["hours"] for v in data.values())
                 tc = sum(v["commits"] for v in data.values())
                 data["total"] = {"name":"", "hours": th, "commits": tc}
         except json.JSONDecodeError:
-            data = table_to_json(raw.splitlines())
+            data = table_to_json(raw_text.splitlines())
 
         pathlib.Path('git-hours.json').write_text(json.dumps(data, indent=2))
         PY
+      # ────────────────────────────────────────────────────────────────
 
-    # 6 Install jq (for badge)
     - name: Install jq
       run: sudo apt-get update -y && sudo apt-get install -y jq
 
-    # 7 Build Shields badge
     - name: Build badge.json
       run: |
         HOURS=$(jq '.total.hours' git-hours.json)
         cat > badge.json <<EOF
-        { "schemaVersion": 1,
-          "label": "Coding hours",
-          "message": "${HOURS}h",
-          "color": "informational" }
+        { "schemaVersion":1,
+          "label":"Coding hours",
+          "message":"${HOURS}h",
+          "color":"informational" }
         EOF
 
-    # 8 Summary table
     - name: Add workflow summary
       run: |
         echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
@@ -114,14 +106,13 @@ jobs:
              , (map([.key, (.value.hours|tostring), (.value.commits|tostring)])))
           | @tsv' git-hours.json | column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-    # 9 Upload JSON for Pages build
     - uses: actions/upload-artifact@v4
       with:
         name: git-hours-json
         path: git-hours.json
         retention-days: 30
 
-    # 10 Commit badge + snapshot to metrics
+    # ──────────────────────────── PATCH ③ safer push logic ───────────
     - name: Push to metrics branch
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -129,17 +120,25 @@ jobs:
         git config --global user.name  "git-hours bot"
         git config --global user.email "bot@github.com"
 
-        git fetch origin metrics || true
-        git switch metrics 2>/dev/null || git switch -c metrics
+        git fetch origin metrics || git fetch --all
+        if git show-ref --quiet refs/remotes/origin/metrics; then
+          git switch metrics || git switch -c metrics origin/metrics
+          git pull --ff-only origin metrics || true
+        else
+          git switch -c metrics
+        fi
 
         mkdir -p reports
         cp git-hours.json "reports/git-hours-$(date +%F).json"
         git add reports badge.json
         git commit -m "chore(metrics): report $(date +%F)" || echo "No change"
-        git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
+
+        git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics \
+        || git push --force-with-lease https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
+      # ────────────────────────────────────────────────────────────────
 
 ###############################################################################
-# Job 2 – build static dashboard and upload as Pages artifact
+# Job 2 – build Site & upload Pages artifact
 ###############################################################################
   build-site:
     needs: report
@@ -149,9 +148,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - uses: actions/download-artifact@v4
-      with:
-        name: git-hours-json
-        path: tmp                             # tmp/git-hours.json
+      with: { name: git-hours-json, path: tmp }
 
     - name: Build KPIs site
       run: |
@@ -160,11 +157,13 @@ jobs:
         cp tmp/git-hours.json "site/data/git-hours-${DATE}.json"
         cp tmp/git-hours.json site/git-hours-latest.json
 
+        # (HTML generator unchanged)
+
         python - <<'PY'
         import json, datetime, pathlib, html, textwrap
         data  = json.load(open('tmp/git-hours.json'))
         total = data['total']
-        labels = [html.escape(k) for k in data.keys() if k != 'total']
+        labels = [html.escape(k) for k in data if k != 'total']
         rows = "\n".join(
             f"<tr><td>{l}</td><td>{data[l]['hours']}</td><td>{data[l]['commits']}</td></tr>"
             for l in labels)
@@ -208,15 +207,11 @@ jobs:
                 const hours  = labels.map(l => d[l].hours);
                 new Chart(document.getElementById('hoursChart'), {{
                   type: 'bar',
-                  data: {{
-                    labels: labels,
-                    datasets: [{{ label: 'Hours', data: hours }}]
-                  }},
+                  data: {{ labels, datasets:[{{label:'Hours',data:hours}}] }},
                   options: {{
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    plugins: {{ legend: {{ display: false }} }},
-                    scales: {{ y: {{ beginAtZero: true }} }}
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{{legend:{{display:false}}}},
+                    scales:{{y:{{beginAtZero:true}}}}
                   }}
                 }});
               }});
@@ -226,12 +221,13 @@ jobs:
         pathlib.Path('site/index.html').write_text(textwrap.dedent(page))
         PY
 
+    # ───────────────────── PATCH ② bump to v3 (uses artifact@v4) ──────
     - uses: actions/upload-pages-artifact@v3
-      with:
-        path: site
+      with: { path: site }
+    # ───────────────────────────────────────────────────────────────────
 
 ###############################################################################
-# Job 3 – deploy artifact to GitHub Pages
+# Job 3 – deploy to GitHub Pages
 ###############################################################################
   deploy-pages:
     needs: build-site
