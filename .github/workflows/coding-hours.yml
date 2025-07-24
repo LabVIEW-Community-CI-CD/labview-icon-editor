@@ -52,33 +52,42 @@ jobs:
         git-hours $ARGS > raw.txt
         cat raw.txt
 
-    # 5 Convert raw.txt → git-hours.json   (hours + commits per email)
+    # 5️⃣ Convert raw.txt → git-hours.json  (hours + commits per email)
     - name: Convert to JSON
       run: |
         python - <<'PY'
-        import sys, json, re, pathlib
-        hours = {}
-        total_h = total_c = 0
-        for line in open('raw.txt'):
-            line = line.rstrip()
-            if not line or line.lower().startswith(('author','name','user','----')):
-                continue
-            parts = re.split(r'\s+', line)
-            if parts[0].lower().startswith('total'):
-                # Some git-hours builds emit a total row; ignore here – we recompute.
-                continue
-            if len(parts) < 3:
-                continue
-            commits = int(parts[-1])
-            hrs     = int(parts[-2])
-            email   = ' '.join(parts[:-2])
-            hours[email] = {"name": email, "hours": hrs, "commits": commits}
-            total_h += hrs
-            total_c += commits
-        hours["total"] = {"name":"", "hours": total_h, "commits": total_c}
-        pathlib.Path('git-hours.json').write_text(json.dumps(hours, indent=2))
+        import json, re, pathlib, sys
+        raw = pathlib.Path('raw.txt').read_text()
+
+        def table_to_json(lines):
+            data, th, tc = {}, 0, 0
+            for line in lines:
+                line = line.rstrip()
+                if not line or line.lower().startswith(('author','name','user','----','total')):
+                    continue
+                parts = re.split(r'\s+', line)
+                if len(parts) < 3:                # malformed row
+                    continue
+                commits = int(parts[-1])
+                hrs     = int(parts[-2])
+                email   = ' '.join(parts[:-2])
+                data[email] = {"name": email, "hours": hrs, "commits": commits}
+                th += hrs; tc += commits
+            data["total"] = {"name":"", "hours": th, "commits": tc}
+            return data
+    
+        try:                                      # JSON already?
+            obj = json.loads(raw)
+            # ensure total exists
+            if "total" not in obj:
+                th = sum(v["hours"] for v in obj.values())
+                tc = sum(v["commits"] for v in obj.values())
+                obj["total"] = {"name":"", "hours": th, "commits": tc}
+        except json.JSONDecodeError:
+            obj = table_to_json(raw.splitlines())
+    
+        pathlib.Path('git-hours.json').write_text(json.dumps(obj, indent=2))
         PY
-        cat git-hours.json
 
     # 6 Install jq (for badge)
     - name: Install jq
