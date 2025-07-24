@@ -35,19 +35,19 @@ jobs:
           sed -i 's/go 1.24.1/go 1.24/' go.mod
           go install .
 
-      # 4️⃣ Generate the report into a text file
+      # 4️⃣ Generate the report as JSON
       - name: Generate report
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
             ARGS+=" -since ${{ github.event.inputs.window_start }}"
           fi
-          git-hours $ARGS > git-hours.txt
+          git-hours --json $ARGS > git-hours.json
 
       # 4️⃣½ Build a Shields.io badge from the JSON report
       - name: Build badge.json
         run: |
-          HOURS=$(jq '.total.hours' git-hours.txt)
+          HOURS=$(jq '.total.hours' git-hours.json)
           cat > badge.json <<EOF
           {
             "schemaVersion": 1,
@@ -62,14 +62,18 @@ jobs:
         run: |
           echo "### ⏱ Coding‑hours report" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
-          cat git-hours.txt >> $GITHUB_STEP_SUMMARY
+          jq -r '
+            ["Contributor","Hours","Commits"],
+            (.[] | select(.name!="") | [ .name, .hours, .commits ])
+            | @tsv' git-hours.json \
+            | column -t -s $'\''\t'\'' >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
-      # 6️⃣ Upload the raw output as an artifact
+      # 6️⃣ Upload the JSON output as an artifact
       - uses: actions/upload-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
-          path: git-hours.txt
+          path: git-hours.json
           retention-days: 30
 
       # 7️⃣ (Optional) Commit to metrics branch
@@ -82,7 +86,7 @@ jobs:
           git config --global user.email "bot@github.com"
           git switch -C metrics || git checkout metrics
           mkdir -p reports
-          mv git-hours.txt reports/git-hours-$(date +%F).txt
+          mv git-hours.json reports/git-hours-$(date +%F).json
           # Keep badge.json at repo root (in metrics branch) for a stable URL
           git add reports badge.json
           git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
@@ -103,19 +107,19 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
-          path: tmp                         # contains git-hours.txt
+          path: tmp                         # contains git-hours.json
 
       # ② Prepare a static site under ./site
       - name: Build site
         run: |
           mkdir -p site/data
           # Keep a dated copy for time‑series work
-          cp tmp/git-hours.txt "site/data/git-hours-$(date +%F).json"
+          cp tmp/git-hours.json "site/data/git-hours-$(date +%F).json"
 
           # Produce index.html
           python - <<'PY'
           import json, datetime, pathlib
-          data = json.load(open('tmp/git-hours.txt'))
+          data = json.load(open('tmp/git-hours.json'))
           total = data['total']
           rows  = "\n".join(
               f"<tr><td>{k}</td><td>{v['hours']}</td><td>{v['commits']}</td></tr>"
@@ -133,7 +137,7 @@ jobs:
           </head>
           <body>
             <h1>Collaborator KPIs</h1>
-            <p><em>Last updated {datetime.datetime.utcnow().strftime('%F %H:%M UTC')}</em></p>
+            <p><em>Last updated {datetime.datetime.utcnow().strftime('%F %H:%M UTC')}</em></p>
 
             <h2>Totals</h2>
             <ul>
@@ -155,9 +159,8 @@ jobs:
 
       # ③ Deploy ./site to the gh-pages branch
       - name: Deploy to GitHub Pages
-        uses: peaceiris/actions-gh-pages@v4  # battle‑tested Pages deployer :contentReference[oaicite:0]{index=0}
+        uses: peaceiris/actions-gh-pages@v4  # battle‑tested Pages deployer
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           publish_dir: site
           publish_branch: gh-pages
-    
