@@ -52,41 +52,39 @@ jobs:
         git-hours $ARGS > raw.txt
         cat raw.txt
 
-    # 5️⃣ Convert raw.txt → git-hours.json  (hours + commits per email)
+# 5️⃣ Convert raw.txt → git-hours.json  (auto‑detect JSON vs table)
     - name: Convert to JSON
       run: |
         python - <<'PY'
-        import json, re, pathlib, sys
-        raw = pathlib.Path('raw.txt').read_text()
+        import json, re, pathlib
+        raw = pathlib.Path('raw.txt').read_text().strip()
 
         def table_to_json(lines):
-            data, th, tc = {}, 0, 0
+            obj, th, tc = {}, 0, 0
             for line in lines:
-                line = line.rstrip()
                 if not line or line.lower().startswith(('author','name','user','----','total')):
                     continue
                 parts = re.split(r'\s+', line)
-                if len(parts) < 3:                # malformed row
+                if len(parts) < 3:
                     continue
                 commits = int(parts[-1])
                 hrs     = int(parts[-2])
                 email   = ' '.join(parts[:-2])
-                data[email] = {"name": email, "hours": hrs, "commits": commits}
+                obj[email] = {"name": email, "hours": hrs, "commits": commits}
                 th += hrs; tc += commits
-            data["total"] = {"name":"", "hours": th, "commits": tc}
-            return data
-    
-        try:                                      # JSON already?
-            obj = json.loads(raw)
-            # ensure total exists
-            if "total" not in obj:
-                th = sum(v["hours"] for v in obj.values())
-                tc = sum(v["commits"] for v in obj.values())
-                obj["total"] = {"name":"", "hours": th, "commits": tc}
+            obj["total"] = {"name":"", "hours": th, "commits": tc}
+            return obj
+
+        try:                                   # Already JSON?
+            data = json.loads(raw)
+            if "total" not in data:            # add total if missing
+                th = sum(v["hours"] for v in data.values())
+                tc = sum(v["commits"] for v in data.values())
+                data["total"] = {"name":"", "hours": th, "commits": tc}
         except json.JSONDecodeError:
-            obj = table_to_json(raw.splitlines())
-    
-        pathlib.Path('git-hours.json').write_text(json.dumps(obj, indent=2))
+            data = table_to_json(raw.splitlines())
+
+        pathlib.Path('git-hours.json').write_text(json.dumps(data, indent=2))
         PY
 
     # 6 Install jq (for badge)
