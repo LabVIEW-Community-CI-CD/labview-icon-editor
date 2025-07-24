@@ -1,17 +1,17 @@
+# .github/workflows/coding-hours.yml
 name: Coding‑hours report
 
 on:
   schedule:
-    - cron: '0 0 * * 1'                # every Monday at 00:00 UTC
+    - cron: '0 0 * * 1'                # every Monday at 00:00 UTC
   workflow_dispatch:
     inputs:
       window_start:
         description: 'Report since YYYY‑MM‑DD'
         required: false
 
-# Needed for pushes to the metrics and gh‑pages branches
 permissions:
-  contents: write
+  contents: write                       # needed for pushes to metrics & gh‑pages
 
 ###############################################################################
 # Job 1 – produce JSON report, badge, and commit to `metrics`
@@ -22,31 +22,26 @@ jobs:
 
     steps:
       # 1) Full repo checkout
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      # 2) Go toolchain (git‑hours needs ≥ 1.24)
-      - name: Setup Go
-        uses: actions/setup-go@v4
+      # 2) Go toolchain
+      - uses: actions/setup-go@v4
         with:
           go-version: '1.24'
 
-      # 3) Build git‑hours v0.1.2
-      - name: Install git-hours
+      # 3) Build **latest** git‑hours (JSON flag supported)
+      - name: Install git‑hours (latest)
         run: |
-          git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
-          cd git-hours-src
-          sed -i 's/go 1.24.1/go 1.24/' go.mod
-          go install .
+          go install github.com/trinhminhtriet/git-hours@latest
 
-      # 4) jq (present on ubuntu‑latest, but install explicitly for safety)
+      # 4) Ensure jq (already present on ubuntu‑latest, but keep for self‑hosted)
       - name: Ensure jq
-        run: sudo apt-get update && sudo apt-get install -y jq
+        run: sudo apt-get update -y && sudo apt-get install -y jq
 
       # 5) Generate JSON report
-      - name: Generate git-hours report
+      - name: Generate git‑hours report
         run: |
           ARGS=""
           if [ -n "${{ github.event.inputs.window_start }}" ]; then
@@ -67,7 +62,7 @@ jobs:
           }
           EOF
 
-      # 7) Human‑readable summary in the run log
+      # 7) Summarise in the run log
       - name: Add workflow summary
         run: |
           echo "### ⏱ Coding‑hours report" >> "$GITHUB_STEP_SUMMARY"
@@ -77,9 +72,8 @@ jobs:
             | @tsv' git-hours.json |
           column -t -s $'\t' >> "$GITHUB_STEP_SUMMARY"
 
-      # 8) Upload JSON for the next job
-      - name: Upload report artifact
-        uses: actions/upload-artifact@v4
+      # 8) Upload JSON for the Pages job
+      - uses: actions/upload-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: git-hours.json
@@ -87,9 +81,9 @@ jobs:
 
       # 9) Commit badge + dated snapshot to the `metrics` branch
       - name: Commit metrics and badge
-        if: github.ref == 'refs/heads/develop'      # adjust branch as needed
+        if: github.ref == 'refs/heads/develop'      # adjust if needed
         env:
-          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT must have repo scope
+          GH_TOKEN: ${{ secrets.GH_PAT }}            # PAT with repo scope
         run: |
           git config --global user.name  "git-hours bot"
           git config --global user.email "bot@github.com"
@@ -111,17 +105,16 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 1) Pull the JSON we just generated
+      # 1) Pull the JSON report
       - name: Download report artifact
         uses: actions/download-artifact@v4
         with:
           name: git-hours-output-${{ github.run_id }}
           path: tmp                                   # tmp/git-hours.json
 
-      # 2) Build simple static dashboard
+      # 2) Build static dashboard
       - name: Build KPIs site
         run: |
           mkdir -p site/data
@@ -149,13 +142,13 @@ jobs:
             <body>
               <main>
                 <h1>Collaborator KPIs</h1>
-                <p><em>Last updated {datetime.datetime.utcnow():%Y-%m-%d %H:%M UTC}</em></p>
+                <p><em>Last updated {datetime.datetime.utcnow():%Y‑%m‑%d %H:%M UTC}</em></p>
 
                 <h2>Totals</h2>
                 <ul>
                   <li><strong>Hours</strong>: {total['hours']}</li>
                   <li><strong>Commits</strong>: {total['commits']}</li>
-                  <li><strong>Contributors</strong>: {len(raw) - 1}</li>
+                  <li><strong>Contributors</strong>: {len(raw)-1}</li>
                 </ul>
 
                 <h2>Per‑contributor breakdown</h2>
