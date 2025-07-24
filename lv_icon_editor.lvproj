@@ -349,7 +349,6 @@
 		<Item Name="Unit tests" Type="Folder">
 			<Property Name="NI.SortType" Type="Int">1</Property>
 			<Item Name="Editor Position.lvclass" Type="LVClass" URL="../Test/Unit Tests/Editor Position/Editor Position.lvclass"/>
-			<Item Name="Missing in Project.lvclass" Type="LVClass" URL="../Test/Unit Tests/Missing in Project/Missing in Project.lvclass"/>
 			<Item Name="Text-Based VI Icon Tests.lvclass" Type="LVClass" URL="../Test/Unit Tests/Text-Based VI Icon Tests/Text-Based VI Icon Tests.lvclass"/>
 			<Item Name="Undo Redo Core.lvclass" Type="LVClass" URL="../Test/Unit Tests/Undo Redo Core/Undo Redo Core.lvclass"/>
 		</Item>
@@ -418,12 +417,9 @@
 				<Item Name="Get LV Class Name.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/LVClass/Get LV Class Name.vi"/>
 				<Item Name="Test Suite.lvclass" Type="LVClass" URL="/&lt;vilib&gt;/Astemes/LUnit/Test Suite.lvclass"/>
 				<Item Name="Get LV Class Path.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/LVClass/Get LV Class Path.vi"/>
-				<Item Name="Librarian Get Info.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian Get Info.vi"/>
 				<Item Name="Librarian File Info Out.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian File Info Out.ctl"/>
 				<Item Name="Librarian Path Location.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian Path Location.vi"/>
 				<Item Name="Is Path and Not Empty.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/file.llb/Is Path and Not Empty.vi"/>
-				<Item Name="Find First Error.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/error.llb/Find First Error.vi"/>
-				<Item Name="Get VI Library File Info.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Get VI Library File Info.vi"/>
 				<Item Name="Librarian.vi" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian.vi"/>
 				<Item Name="Librarian File Info In.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian File Info In.ctl"/>
 				<Item Name="Librarian File List.ctl" Type="VI" URL="/&lt;vilib&gt;/Utility/libraryn.llb/Librarian File List.ctl"/>
