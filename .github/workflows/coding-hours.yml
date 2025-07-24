@@ -87,3 +87,77 @@ jobs:
           git add reports badge.json
           git commit -m "chore(metrics): add report $(date +%F)" || echo "No change"
           git push https://x-access-token:${GH_TOKEN}@github.com/${{ github.repository }} metrics
+
+###############################################################################
+# build a static site and push it to the gh-pages branch
+###############################################################################
+  build-pages:
+    needs: report                          # wait for the main 'report' job
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # ① Pull the raw JSON we just produced
+      - name: Download git-hours artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: git-hours-output-${{ github.run_id }}
+          path: tmp                         # contains git-hours.txt
+
+      # ② Prepare a static site under ./site
+      - name: Build site
+        run: |
+          mkdir -p site/data
+          # Keep a dated copy for time‑series work
+          cp tmp/git-hours.txt "site/data/git-hours-$(date +%F).json"
+
+          # Produce index.html
+          python - <<'PY'
+          import json, datetime, pathlib
+          data = json.load(open('tmp/git-hours.txt'))
+          total = data['total']
+          rows  = "\n".join(
+              f"<tr><td>{k}</td><td>{v['hours']}</td><td>{v['commits']}</td></tr>"
+              for k,v in data.items() if k != 'total'
+          )
+
+          html = f"""<!doctype html>
+          <html lang="en">
+          <head>
+            <meta charset="utf-8">
+            <title>Collaborator KPIs</title>
+            <link rel="stylesheet"
+                  href="https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css">
+            <script src="https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js" defer></script>
+          </head>
+          <body>
+            <h1>Collaborator KPIs</h1>
+            <p><em>Last updated {datetime.datetime.utcnow().strftime('%F %H:%M UTC')}</em></p>
+
+            <h2>Totals</h2>
+            <ul>
+              <li><strong>Hours</strong>: {total['hours']}</li>
+              <li><strong>Commits</strong>: {total['commits']}</li>
+              <li><strong>Contributors</strong>: {len(data)-1}</li>
+            </ul>
+
+            <h2>Per‑contributor breakdown</h2>
+            <table class="sortable">
+              <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
+              <tbody>{rows}</tbody>
+            </table>
+
+            <p>Raw data files live in <code>/data</code> for further analysis.</p>
+          </body></html>"""
+          pathlib.Path('site/index.html').write_text(html)
+          PY
+
+      # ③ Deploy ./site to the gh-pages branch
+      - name: Deploy to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v4  # battle‑tested Pages deployer :contentReference[oaicite:0]{index=0}
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: site
+          publish_branch: gh-pages
+    
