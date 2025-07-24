@@ -120,13 +120,21 @@ jobs:
         git config --global user.name  "git-hours bot"
         git config --global user.email "bot@github.com"
 
-        git fetch origin metrics || git fetch --all
+        # Stash everything (tracked + untracked) so checkout can’t complain.
+        git stash push --include-untracked --quiet
+
+        # Ensure we have the latest metrics from remote, if it exists.
+        git fetch origin metrics || true
         if git show-ref --quiet refs/remotes/origin/metrics; then
-          git switch metrics || git switch -c metrics origin/metrics
+          git switch --quiet metrics || git switch -c metrics origin/metrics
           git pull --ff-only origin metrics || true
         else
-          git switch -c metrics
+          git switch --orphan metrics
+          git reset --hard
         fi
+
+        # Restore stashed badge.json + reports/
+        git stash pop --quiet || true
 
         mkdir -p reports
         cp git-hours.json "reports/git-hours-$(date +%F).json"
@@ -135,7 +143,7 @@ jobs:
 
         git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics \
         || git push --force-with-lease https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
-      # ────────────────────────────────────────────────────────────────
+
 
 ###############################################################################
 # Job 2 – build Site & upload Pages artifact
