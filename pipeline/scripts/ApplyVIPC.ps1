@@ -4,7 +4,7 @@
     This version includes additional debug/verbose output.
 
 .EXAMPLE
-    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RelativePath "C:\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\Dependencies.vipc" -VIP_LVVersion "2021" -Verbose
+    .\applyvipc.ps1 -MinimumSupportedLVVersion "2021" -SupportedBitness "64" -RelativePath "C:\release\labview-icon-editor-fork" -VIPCPath "Tooling\deployment\runner_dependencies.vipc" -VIP_LVVersion "2021" -Verbose
 #>
 
 [CmdletBinding()]  # Enables -Verbose and other common parameters
@@ -62,6 +62,8 @@ switch ("$VIP_LVVersion-$SupportedBitness") {
     "2023-32" { $VIP_LVVersion_A = "23.3" }
     "2024-64" { $VIP_LVVersion_A = "24.3 (64-bit)" }
     "2024-32" { $VIP_LVVersion_A = "24.3" }
+    "2025-64" { $VIP_LVVersion_A = "25.3 (64-bit)" }
+    "2025-32" { $VIP_LVVersion_A = "25.3" }
     default {
         Write-Error "Unsupported VIP_LVVersion or SupportedBitness for VIP_LVVersion_A."
         exit 1
@@ -77,6 +79,8 @@ switch ("$MinimumSupportedLVVersion-$SupportedBitness") {
     "2023-32" { $VIP_LVVersion_B = "23.3" }
     "2024-64" { $VIP_LVVersion_B = "24.3 (64-bit)" }
     "2024-32" { $VIP_LVVersion_B = "24.3" }
+    "2025-64" { $VIP_LVVersion_B = "25.3 (64-bit)" }
+    "2025-32" { $VIP_LVVersion_B = "25.3" }
     default {
         Write-Error "Unsupported MinimumSupportedLVVersion or SupportedBitness for VIP_LVVersion_B."
         exit 1
@@ -93,14 +97,12 @@ Write-Verbose "VIP_LVVersion_B (for minimum LVVersion): $VIP_LVVersion_B"
 Write-Verbose "Constructing the g-cli command script..."
 $script = @"
 g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_B"
-g-cli --lv-ver $MinimumSupportedLVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_B"
 "@
 
 if ($VIP_LVVersion -ne $MinimumSupportedLVVersion) {
     Write-Verbose "VIP_LVVersion and MinimumSupportedLVVersion differ; adding commands for $VIP_LVVersion..."
     $script += @"
-g-cli --lv-ver $VIP_LVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_A"
-g-cli --lv-ver $VIP_LVVersion --arch $SupportedBitness -v "$($ResolvedRelativePath)\Tooling\Deployment\Applyvipc.vi" -- "$ResolvedVIPCPath" "$VIP_LVVersion_A"
+g-cli vipc -- -t 3000 -v "$VIP_LVVersion" "$ResolvedVIPCPath"
 "@
 }
 
