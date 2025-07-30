@@ -9,8 +9,8 @@ if not REPOS:
 
 def run_git_hours(repo: str) -> dict:
     temp = tempfile.mkdtemp()
-    subprocess.run(["git", "clone", "--depth", "1", f"https://github.com/{repo}.git", temp], check=True)
-    cmd = ["git-hours", "--json"]
+    subprocess.run(["git", "clone", f"https://github.com/{repo}.git", temp], check=True)
+    cmd = ["git-hours"]
     if SINCE:
         cmd.extend(["-since", SINCE])
     out = subprocess.check_output(cmd, cwd=temp, text=True)
