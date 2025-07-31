@@ -18,10 +18,16 @@ jobs:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }        # develop branch by default
 
+      - uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ github.event.workflow_run.id }}
+          name: git-hours-json
+          path: tmp
+
       # Grab the helper
       - name: Run table refresh
         run: |
-          python scripts/update_readme_hours.py
+          python scripts/update_readme_hours.py tmp/git-hours.json
 
       - name: Commit & push
         env:
