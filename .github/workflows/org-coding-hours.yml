@@ -36,7 +36,7 @@ jobs:
     - uses: actions/upload-artifact@v4
       with:
         name: git-hours-aggregated-json
-        path: reports/git-hours-aggregated-*.json
+        path: reports/git-hours-*.json
         retention-days: 30
 
   build-site:

@@ -5,10 +5,11 @@ Refresh the contributor‑hours table in README.md.
 Usage:
   python scripts/update_readme_hours.py  [<path-to-json>]
 
-If <path-to-json> is omitted the script will auto‑detect the latest
-reports/git-hours-*.json or git-hours-*.txt on the *metrics* branch.
+If <path-to-json> is omitted the script searches for the most recent
+`git-hours-*.json` file under `reports/` or `site/data/` in the current
+repository.
 """
-import json, pathlib, re, subprocess, sys
+import json, pathlib, re, sys
 from collections import defaultdict
 
 # ────────────────────────── identity normalisation ──────────────────────────
@@ -39,25 +40,18 @@ def canonical(addr: str) -> str:
 def latest_json(path_hint: str | None = None) -> pathlib.Path:
     if path_hint:
         return pathlib.Path(path_hint)
-    # Ensure we have the metrics branch locally
-    subprocess.run(["git", "fetch", "--quiet", "origin", "metrics:refs/remotes/origin/metrics"],
-                   check=True)
-    # Read files straight from the work‑tree; avoids having to checkout metrics
-    patterns = ["reports/git-hours-*.json", "reports/git-hours-*.txt"]
-    files = subprocess.check_output([
-        "git", "ls-tree", "--name-only", "-r", "origin/metrics", "--", *patterns
-    ], text=True).splitlines()
-    if not files:
-        sys.exit("❌  No git-hours report found on metrics branch.")
-    files.sort()
-    return pathlib.Path(files[-1])   # files are alphabetical – last one = newest
+
+    candidates = list(pathlib.Path("reports").glob("git-hours-*.json"))
+    candidates += list(pathlib.Path("site/data").glob("git-hours-*.json"))
+
+    if not candidates:
+        sys.exit("❌  No git-hours report found.")
+
+    candidates.sort()
+    return candidates[-1]
 
 def load_report(p: pathlib.Path) -> dict[str, dict]:
-    if p.exists():                                  # local file (already checked out)
-        return json.loads(p.read_text())
-    # Otherwise read the blob via git show
-    raw = subprocess.check_output(["git", "show", f"origin/metrics:{p}"], text=True)
-    return json.loads(raw)
+    return json.loads(p.read_text())
 
 # ────────────────────────── markdown generation ─────────────────────────────
 def make_table(data: dict) -> str:
