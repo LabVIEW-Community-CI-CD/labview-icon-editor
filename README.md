@@ -126,10 +126,11 @@ Explore the `/docs` folder for technical references:
 - 🚢 [Multichannel Release Workflow](docs/ci/actions/multichannel-release-workflow.md)  
 - 🖥 [Runner Setup Guide](docs/ci/actions/runner-setup-guide.md)  
 - 🧬 [Injecting Repo/Org Metadata](docs/actions/injecting-repo-org-to-vi-package.md)  
-- 🧯 [Troubleshooting & FAQ](docs/ci/troubleshooting-faq.md)  
-- 🔬 [Experiments](docs/ci/experiments.md)  
-- 🛡️ [Maintainers Guide](docs/ci/actions/maintainers-guide.md)  
-- 🧱 [Troubleshooting Experiments](docs/ci/actions/troubleshooting-experiments.md)  
+- 🧯 [Troubleshooting & FAQ](docs/ci/troubleshooting-faq.md)
+- 🔬 [Experiments](docs/ci/experiments.md)
+- 🛡️ [Maintainers Guide](docs/ci/actions/maintainers-guide.md)
+- 🧱 [Troubleshooting Experiments](docs/ci/actions/troubleshooting-experiments.md)
+- ⏱ [Coding-hours Metrics](docs/coding-hours.md)
 - 🏛️ [Governance](GOVERNANCE.md)
 
 ---
