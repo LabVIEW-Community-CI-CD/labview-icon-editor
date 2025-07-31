@@ -25,7 +25,7 @@ permissions:
 
 jobs:
 ###############################################################################
-# Job 1 – run git‑hours (Go), build badge, commit to `metrics`
+# Job 1 – run git‑hours (Go) and commit to `metrics`
 ###############################################################################
   report:
     if: github.ref == 'refs/heads/develop'
@@ -96,15 +96,6 @@ jobs:
     - name: Install jq
       run: sudo apt-get update -y && sudo apt-get install -y jq
 
-    - name: Build badge.json
-      run: |
-        HOURS=$(jq '.total.hours' git-hours.json)
-        cat > badge.json <<EOF
-        { "schemaVersion":1,
-          "label":"Coding hours",
-          "message":"${HOURS}h",
-          "color":"informational" }
-        EOF
 
     - name: Add workflow summary
       run: |
@@ -145,12 +136,12 @@ jobs:
           git reset --hard
         fi
 
-        # Restore stashed badge.json + reports/
+        # Restore stashed reports/
         git stash pop --quiet || true
 
         mkdir -p reports
         cp git-hours.json "reports/git-hours-$(date +%F).json"
-        git add reports badge.json
+        git add git-hours.json reports
         git commit -m "chore(metrics): report $(date +%F)" || echo "No change"
 
         git push https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO} metrics \
