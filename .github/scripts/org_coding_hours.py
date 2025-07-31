@@ -8,13 +8,16 @@ if not REPOS:
     sys.exit("REPOS env var must list repositories to process")
 
 def run_git_hours(repo: str) -> dict:
-    temp = tempfile.mkdtemp()
-    subprocess.run(["git", "clone", f"https://github.com/{repo}.git", temp], check=True)
-    cmd = ["git-hours"]
-    if SINCE:
-        cmd.extend(["-since", SINCE])
-    out = subprocess.check_output(cmd, cwd=temp, text=True)
-    return json.loads(out)
+    with tempfile.TemporaryDirectory() as temp:
+        subprocess.run(
+            ["git", "clone", "--depth", "1", f"https://github.com/{repo}.git", temp],
+            check=True,
+        )
+        cmd = ["git-hours"]
+        if SINCE:
+            cmd.extend(["-since", SINCE])
+        out = subprocess.check_output(cmd, cwd=temp, text=True)
+        return json.loads(out)
 
 def aggregate(results: list[dict]) -> dict:
     agg = {"total": {"hours": 0, "commits": 0}}
