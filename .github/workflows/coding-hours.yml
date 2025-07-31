@@ -5,6 +5,15 @@ on:
     - cron: '0 0 * * 1'                 # every Monday 00:00 UTC
   workflow_dispatch:
     inputs:
+      repo:
+        description: 'Repository to analyze'
+        required: true
+        type: choice
+        options:
+          - ni/labview-icon-editor
+          - ni/actor-framework
+          - ni/open-source
+        default: ni/labview-icon-editor
       window_start:
         description: 'Report since YYYY‑MM‑DD'
         required: false
@@ -24,7 +33,9 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-      with: { fetch-depth: 0 }
+      with:
+        repository: ${{ github.event.inputs.repo }}
+        fetch-depth: 0
 
     - uses: actions/setup-go@v4
       with: { go-version: '1.24' }
@@ -141,8 +152,8 @@ jobs:
         git add reports badge.json
         git commit -m "chore(metrics): report $(date +%F)" || echo "No change"
 
-        git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics \
-        || git push --force-with-lease https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.repository }} metrics
+        git push https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.event.inputs.repo }} metrics \
+        || git push --force-with-lease https://x-access-token:${GITHUB_TOKEN}@github.com/${{ github.event.inputs.repo }} metrics
 
 
 ###############################################################################
@@ -154,6 +165,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
+      with:
+        repository: ${{ github.event.inputs.repo }}
 
     - uses: actions/download-artifact@v4
       with: { name: git-hours-json, path: tmp }
