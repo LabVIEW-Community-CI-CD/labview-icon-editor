@@ -25,7 +25,7 @@ permissions:
 
 jobs:
 ###############################################################################
-# Job 1 – run git‑hours (Go) and commit to `metrics`
+# Job 1 – run git‑hours (Go) and upload artifact
 ###############################################################################
   report:
     if: github.ref == 'refs/heads/develop'
@@ -113,39 +113,6 @@ jobs:
         name: git-hours-json
         path: git-hours.json
         retention-days: 30
-
-    # ──────────────────────────── PATCH ③ safer push logic ───────────
-    - name: Push to metrics branch
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        TARGET_REPO: ${{ github.event.inputs.repo || github.repository }}
-      run: |
-        git config --global user.name  "git-hours bot"
-        git config --global user.email "bot@github.com"
-
-        # Stash everything (tracked + untracked) so checkout can’t complain.
-        git stash push --include-untracked --quiet
-
-        # Ensure we have the latest metrics from remote, if it exists.
-        git fetch origin metrics || true
-        if git show-ref --quiet refs/remotes/origin/metrics; then
-          git switch --quiet metrics || git switch -c metrics origin/metrics
-          git pull --ff-only origin metrics || true
-        else
-          git switch --orphan metrics
-          git reset --hard
-        fi
-
-        # Restore stashed reports/
-        git stash pop --quiet || true
-
-        mkdir -p reports
-        cp git-hours.json "reports/git-hours-$(date +%F).json"
-        git add git-hours.json reports
-        git commit -m "chore(metrics): report $(date +%F)" || echo "No change"
-
-        git push https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO} metrics \
-        || git push --force-with-lease https://x-access-token:${GITHUB_TOKEN}@github.com/${TARGET_REPO} metrics
 
 
 ###############################################################################
