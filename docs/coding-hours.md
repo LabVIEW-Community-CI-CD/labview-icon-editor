@@ -7,7 +7,7 @@ This page explains how the repository generates contributor hours and where the 
 The **Coding-hours report** workflow runs weekly and can also be triggered manually. It performs the following steps:
 
 1. **Collect statistics** – The job checks out all three repositories and runs `git-hours` to calculate commit hours per contributor. The aggregated report is saved as `git-hours.json` and archived as a workflow artifact.
-2. **Build the KPIs site** – Using this aggregated data, a simple HTML dashboard is generated under a `site/` directory. This directory is then uploaded as a Pages artifact.
+2. **Build the KPIs site** – Using this aggregated data, a simple HTML dashboard is generated under a `site/` directory. This directory is then uploaded as a Pages artifact. The page includes a section for each repository in addition to organization-wide totals.
 3. **Deploy** – The site artifact is deployed to GitHub Pages so everyone can view the latest dashboard covering all repositories.
 
 ## Viewing the dashboard
