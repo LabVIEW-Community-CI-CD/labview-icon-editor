@@ -15,9 +15,10 @@
 ## 🧑‍💻 Table of Contents (Collaborators)  
 - 🧩 [Key Components](#key-components)  
 - 🚀 [Getting Started & Contributing](#getting-started--contributing)  
-- 🌱 [Feature & Experiment Workflows](#feature--experiment-workflows)  
-- 📚 [Documentation](#documentation)  
-- 📄 [License & CLA](#license--cla)  
+- 🌱 [Feature & Experiment Workflows](#feature--experiment-workflows)
+- 📚 [Documentation](#documentation)
+- ⏱ [Contributor Hours](#contributor-hours)
+- 📄 [License & CLA](#license--cla)
 - 💬 [Contarct & Discord](#contact--discord)
 
 ---
@@ -129,8 +130,17 @@ Explore the `/docs` folder for technical references:
 - 🧯 [Troubleshooting & FAQ](docs/ci/troubleshooting-faq.md)  
 - 🔬 [Experiments](docs/ci/experiments.md)  
 - 🛡️ [Maintainers Guide](docs/ci/actions/maintainers-guide.md)  
-- 🧱 [Troubleshooting Experiments](docs/ci/actions/troubleshooting-experiments.md)  
+- 🧱 [Troubleshooting Experiments](docs/ci/actions/troubleshooting-experiments.md)
 - 🏛️ [Governance](GOVERNANCE.md)
+
+---
+
+## ⏱ Contributor Hours
+
+The community's commitment is tracked on a [KPIs dashboard](https://ni.github.io/labview-icon-editor/) where live data is updated weekly.
+
+<!-- HOURS_START -->
+<!-- HOURS_END -->
 
 ---
 
