@@ -6,7 +6,7 @@ Usage:
   python scripts/update_readme_hours.py  [<path-to-json>]
 
 If <path-to-json> is omitted the script will auto‑detect the latest
-reports/git-hours-*.json on the *metrics* branch.
+reports/git-hours-*.json or git-hours-*.txt on the *metrics* branch.
 """
 import json, pathlib, re, subprocess, sys
 from collections import defaultdict
@@ -43,11 +43,13 @@ def latest_json(path_hint: str | None = None) -> pathlib.Path:
     subprocess.run(["git", "fetch", "--quiet", "origin", "metrics:refs/remotes/origin/metrics"],
                    check=True)
     # Read files straight from the work‑tree; avoids having to checkout metrics
-    files = subprocess.check_output(["git", "ls-tree", "--name-only", "-r",
-                                     "origin/metrics", "--", "reports/git-hours-*.json"],
-                                    text=True).splitlines()
+    patterns = ["reports/git-hours-*.json", "reports/git-hours-*.txt"]
+    files = subprocess.check_output([
+        "git", "ls-tree", "--name-only", "-r", "origin/metrics", "--", *patterns
+    ], text=True).splitlines()
     if not files:
-        sys.exit("❌  No git-hours JSON found on metrics branch.")
+        sys.exit("❌  No git-hours report found on metrics branch.")
+    files.sort()
     return pathlib.Path(files[-1])   # files are alphabetical – last one = newest
 
 def load_report(p: pathlib.Path) -> dict[str, dict]:
