@@ -51,7 +51,7 @@ jobs:
         FILE=$(find tmp -name 'git-hours-aggregated-*.json' | head -n 1)
         DATE=$(date +%F)
         mkdir -p site/data
-        cp tmp/reports/git-hours-*.json site/data/
+        cp tmp/git-hours-*.json site/data/
         cp "$FILE" "site/data/git-hours-${DATE}.json"
         cp "$FILE" site/git-hours-latest.json
         export FILE DATE
@@ -69,7 +69,7 @@ jobs:
             for l in labels)
 
         sections = []
-        for path in glob.glob(f"tmp/reports/git-hours-*-{date}.json"):
+        for path in glob.glob(f"tmp/git-hours-*-{date}.json"):
             if 'aggregated' in path:
                 continue
             repo_enc = pathlib.Path(path).stem.split(f'-{date}')[0][10:]
