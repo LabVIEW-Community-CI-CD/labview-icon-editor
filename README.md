@@ -15,10 +15,9 @@
 ## 🧑‍💻 Table of Contents (Collaborators)  
 - 🧩 [Key Components](#key-components)  
 - 🚀 [Getting Started & Contributing](#getting-started--contributing)  
-- 🌱 [Feature & Experiment Workflows](#feature--experiment-workflows)
-- 📚 [Documentation](#documentation)
-- ⏱ [Contributor Hours](#contributor-hours)
-- 📄 [License & CLA](#license--cla)
+- 🌱 [Feature & Experiment Workflows](#feature--experiment-workflows)  
+- 📚 [Documentation](#documentation)  
+- 📄 [License & CLA](#license--cla)  
 - 💬 [Contarct & Discord](#contact--discord)
 
 ---
@@ -127,20 +126,12 @@ Explore the `/docs` folder for technical references:
 - 🚢 [Multichannel Release Workflow](docs/ci/actions/multichannel-release-workflow.md)  
 - 🖥 [Runner Setup Guide](docs/ci/actions/runner-setup-guide.md)  
 - 🧬 [Injecting Repo/Org Metadata](docs/actions/injecting-repo-org-to-vi-package.md)  
-- 🧯 [Troubleshooting & FAQ](docs/ci/troubleshooting-faq.md)  
-- 🔬 [Experiments](docs/ci/experiments.md)  
-- 🛡️ [Maintainers Guide](docs/ci/actions/maintainers-guide.md)  
+- 🧯 [Troubleshooting & FAQ](docs/ci/troubleshooting-faq.md)
+- 🔬 [Experiments](docs/ci/experiments.md)
+- 🛡️ [Maintainers Guide](docs/ci/actions/maintainers-guide.md)
 - 🧱 [Troubleshooting Experiments](docs/ci/actions/troubleshooting-experiments.md)
+- ⏱ [Coding-hours Metrics](docs/coding-hours.md)
 - 🏛️ [Governance](GOVERNANCE.md)
-
----
-
-## ⏱ Contributor Hours
-
-The community's commitment is tracked on a [KPIs dashboard](https://ni.github.io/labview-icon-editor/) where live data is updated weekly.
-
-<!-- HOURS_START -->
-<!-- HOURS_END -->
 
 ---
 
