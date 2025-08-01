@@ -23,6 +23,11 @@ jobs:
       uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v3
       with:
         repos: ni/labview-icon-editor ni/actor-framework ni/open-source
+    - uses: actions/upload-artifact@v4
+      with:
+        name: git-hours-aggregated-json
+        path: reports/git-hours-*.json
+        retention-days: 30
 
   build-site:
     needs: report
