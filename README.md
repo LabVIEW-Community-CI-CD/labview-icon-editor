@@ -49,6 +49,16 @@ jobs:
 
 This workflow triggers manually through the GitHub UI. When run, it computes coding hours across the specified repositories, writes JSON reports to the `metrics` branch, and publishes the KPI website to the `gh-pages` branch.
 
+## Single-repository usage
+
+For a simpler setup that processes only a single repository, copy
+`.github/workflows/repo-coding-hours.yml` into that repository. The workflow
+downloads a small helper script from this project, runs `git-hours` in the
+checked‑out repository and commits `reports/git-hours-<date>.json` back to the
+default branch. It supports an optional `window_start` input which maps to the
+`WINDOW_START` environment variable.
+
+
 ## Notes
 
 * The action installs a specific version of `git‑hours` (v0.1.2) using Go 1.24 and executes a Python helper script. If you want to update the version, modify the clone command in `action.yml` accordingly.
