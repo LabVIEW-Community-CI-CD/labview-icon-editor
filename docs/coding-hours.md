@@ -4,7 +4,7 @@ This page explains how the repository generates contributor hours and where the 
 
 ## How the workflow works
 
-The **Coding-hours report** workflow runs weekly and can also be triggered manually. It performs the following steps:
+The **Coding-hours report** workflow runs weekly and can also be triggered manually. It leverages the [Org Coding Hours Action](https://github.com/LabVIEW-Community-CI-CD/org-coding-hours-action) to compute statistics and publish the results. It performs the following steps:
 
 1. **Collect statistics** – The job checks out the repository and runs `git-hours` to calculate commit hours per contributor. The results are saved as `git-hours.json` and archived as a workflow artifact.
 2. **Commit to metrics branch** – The JSON report and a `badge.json` file are committed to the `metrics` branch. Historical snapshots are stored under `reports/` in that branch.
