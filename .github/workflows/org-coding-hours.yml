@@ -22,7 +22,7 @@ jobs:
     - name: Run Org Coding Hours Action
       uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v4
       with:
-        repos: ni/labview-icon-editor ni/actor-framework ni/open-source
+        repos: LabVIEW-Community-CI-CD/labview-icon-editor
         window_start: ${{ github.event.inputs.window_start }}
     - uses: actions/upload-artifact@v4
       with:
