@@ -1,0 +1,69 @@
+
+    <!doctype html><html lang='en'><head>
+      <meta charset='utf-8'>
+      <title>Organization Coding Hours</title>
+      <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
+      <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
+      <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
+      <style>canvas{max-height:400px}</style>
+    </head><body><main>
+      <h1>Organization Coding Hours</h1>
+      <p><em>Last updated 2025-08-01 01:10 UTC</em></p>
+
+      <h2>Totals</h2>
+      <ul>
+        <li><strong>Hours</strong>: 971</li>
+        <li><strong>Commits</strong>: 1282</li>
+        <li><strong>Contributors</strong>: 22</li>
+      </ul>
+
+      <h2>Hours per contributor</h2>
+      <canvas id='hoursChart'></canvas>
+
+      <h2>Detail table</h2>
+      <table class='sortable'>
+        <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
+        <tbody><tr><td>131851960+yash-ni@users.noreply.github.com</td><td>0</td><td>1</td></tr>
+<tr><td>156447188+svelderrainruiz@users.noreply.github.com</td><td>97</td><td>82</td></tr>
+<tr><td>24767209+JayKayAce@users.noreply.github.com</td><td>0</td><td>1</td></tr>
+<tr><td>32969609+eyesonvis@users.noreply.github.com</td><td>4</td><td>4</td></tr>
+<tr><td>60667522+crossrulz@users.noreply.github.com</td><td>17</td><td>10</td></tr>
+<tr><td>66672184+ThatsTheEnd@users.noreply.github.com</td><td>0</td><td>1</td></tr>
+<tr><td>71788381+gregr-ni@users.noreply.github.com</td><td>6</td><td>4</td></tr>
+<tr><td>Elijah.Kerry@gmail.com</td><td>0</td><td>2</td></tr>
+<tr><td>Elijah.Kerry@ni.com</td><td>0</td><td>1</td></tr>
+<tr><td>Timothy.Robinson2@ngc.com</td><td>0</td><td>1</td></tr>
+<tr><td>bot@github.com</td><td>0</td><td>3</td></tr>
+<tr><td>crossrulz@outlook.com</td><td>86</td><td>187</td></tr>
+<tr><td>github-actions[bot]@users.noreply.github.com</td><td>11</td><td>8</td></tr>
+<tr><td>greg.richardson@ni.com</td><td>16</td><td>11</td></tr>
+<tr><td>jim.kring@jki.net</td><td>2</td><td>2</td></tr>
+<tr><td>juan@hasbun-wood-engineering.de</td><td>17</td><td>12</td></tr>
+<tr><td>sergio.velderrain@emerson.com</td><td>332</td><td>406</td></tr>
+<tr><td>sergio.velderrain@ni.com</td><td>339</td><td>505</td></tr>
+<tr><td>58081359+OlivierJourdan@users.noreply.github.com</td><td>0</td><td>1</td></tr>
+<tr><td>christina.rogers@ni.com</td><td>0</td><td>1</td></tr>
+<tr><td>allencsmith149@yahoo.com</td><td>44</td><td>38</td></tr>
+<tr><td>niACS@users.noreply.github.com</td><td>0</td><td>1</td></tr></tbody>
+      </table>
+
+      <p>Historical JSON snapshots live in <code>/data</code>.</p>
+
+      <script>
+        fetch('git-hours-latest.json')
+          .then(r => r.json())
+          .then(d => {
+            const labels = Object.keys(d).filter(k => k !== 'total');
+            const hours  = labels.map(l => d[l].hours);
+            new Chart(document.getElementById('hoursChart'), {
+              type: 'bar',
+              data: { labels, datasets:[{label:'Hours',data:hours}] },
+              options: {
+                responsive:true, maintainAspectRatio:false,
+                plugins:{legend:{display:false}},
+                scales:{y:{beginAtZero:true}}
+              }
+            });
+          });
+      </script>
+    </main></body></html>
