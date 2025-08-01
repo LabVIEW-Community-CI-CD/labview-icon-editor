@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       window_start:
-        description: "Optional start date YYYY-MM-DD"
+        description: 'Optional start date YYYY-MM-DD'
         required: false
 
 permissions:
@@ -13,148 +13,171 @@ permissions:
   id-token: write
 
 jobs:
+# ---------------------------------------------------------------------
+# 1) Run the Git‑hours report and publish the JSON artefacts
+# ---------------------------------------------------------------------
   report:
     runs-on: ubuntu-latest
     steps:
-      # Checkout your repository; required by composite action
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
+    - uses: actions/setup-go@v4
+      with:
+        go-version: '1.24'
+    - name: Run Org Coding Hours Action
+      uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v6
+      with:
+        repos: LabVIEW-Community-CI-CD/labview-icon-editor
+        window_start: ${{ github.event.inputs.window_start }}
+    - name: Upload reports
+      uses: actions/upload-artifact@v4
+      with:
+        name: git-hours-json
+        path: reports/*.json
+        retention-days: 30
 
-      # Run Org Coding Hours Action (use v6)
-      - name: Run Org Coding Hours Action
-        uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v6
-        with:
-          repos: LabVIEW-Community-CI-CD/labview-icon-editor
-          window_start: ${{ github.event.inputs.window_start }}
-
-      # Upload all report files – use the reports/ directory (not a wildcard):contentReference[oaicite:2]{index=2}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: git-hours-json
-          path: reports/
-          retention-days: 30
-
+# ---------------------------------------------------------------------
+# 2) Build the static KPI microsite from the artefacts
+# ---------------------------------------------------------------------
   build-site:
     needs: report
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+    - uses: actions/checkout@v4
 
-      # Download the reports from the previous job
-      - uses: actions/download-artifact@v4
-        with:
-          name: git-hours-json
-          path: tmp
+    - name: Download JSON artefacts
+      uses: actions/download-artifact@v4
+      with:
+        name: git-hours-json          # <-- matches the name set above
+        path: tmp                    #    and drops everything under tmp/
+        # `path` is the recommended way to relocate artefacts :contentReference[oaicite:0]{index=0}
 
-      # Build the KPI site using your existing script
-      - name: Build KPIs site
-        run: |
-          FILE=$(find tmp -name 'git-hours-aggregated-*.json' | head -n 1)
-          DATE=$(date +%F)
-          mkdir -p site/data
-          cp tmp/git-hours-*.json site/data/
-          cp "$FILE" "site/data/git-hours-${DATE}.json"
-          cp "$FILE" site/git-hours-latest.json
-          export FILE DATE
-          python - <<'PY'
-          import json, datetime, pathlib, html, textwrap, os, glob
+    # -----------------------------------------------------------------
+    # Build the static site – works with both old and new report names
+    # -----------------------------------------------------------------
+    - name: Build KPIs site
+      run: |
+        set -eo pipefail
+        DATE=$(date +%F)
 
-          date = os.environ['DATE']
-          agg_file = os.environ['FILE']
-          data  = json.load(open(agg_file))
-          total = data['total']
+        # --- locate the aggregated report (new name is 'aggregated*.json') ---
+        FILE=$(find tmp -type f -name '*aggregated*.json' | head -n 1)
+        if [[ -z "$FILE" ]]; then
+          echo "❌ Aggregated report not found"; exit 1;
+        fi
 
-          labels = [html.escape(k) for k in data if k != 'total']
-          rows = "\n".join(
-              f"<tr><td>{l}</td><td>{data[l]['hours']}</td><td>{data[l]['commits']}</td></tr>"
-              for l in labels)
+        # --- stage JSON snapshots ------------------------------------------------
+        mkdir -p site/data
+        cp tmp/*.json site/data/                        # every run‑level JSON
+        cp "$FILE" "site/data/git-hours-${DATE}.json"   # dated snapshot
+        cp "$FILE"  site/git-hours-latest.json          # rolling pointer
 
-          sections = []
-          for path in glob.glob(f"tmp/git-hours-*-{date}.json"):
-              if 'aggregated' in path:
-                  continue
-              repo_enc = pathlib.Path(path).stem.split(f'-{date}')[0][10:]
-              repo = repo_enc.replace('_', '/')
-              repo_data = json.load(open(path))
-              repo_labels = [html.escape(k) for k in repo_data if k != 'total']
-              repo_rows = "\n".join(
-                  f"<tr><td>{l}</td><td>{repo_data[l]['hours']}</td><td>{repo_data[l]['commits']}</td></tr>"
-                  for l in repo_labels)
-              sections.append(f"<h2>{repo}</h2><table class='sortable'>"
-                             f"<thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>"
-                             f"<tbody>{repo_rows}</tbody></table>")
+        # --- generate HTML -------------------------------------------------------
+        export FILE DATE                                 # used by inline Python
+        python - <<'PY'
+        import json, os, pathlib, glob, html, textwrap, datetime
 
-          page = f"""
-          <!doctype html><html lang='en'><head>
-            <meta charset='utf-8'>
-            <meta name='viewport' content='width=device-width, initial-scale=1'>
-            <title>Collaborator KPIs</title>
-            <link rel='stylesheet' href='https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css'>
-            <script src='https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js' defer></script>
-            <script src='https://cdn.jsdelivr.net/npm/chart.js'></script>
-            <style>canvas{{max-height:400px}}</style>
-          </head><body><main>
-            <h1>Collaborator KPIs</h1>
-            <p><em>Last updated {datetime.datetime.utcnow():%Y-%m-%d %H:%M UTC}</em></p>
+        agg_file = os.environ['FILE']
+        date     = os.environ['DATE']
+        data     = json.load(open(agg_file))
+        total    = data['total']
 
-            <h2>Totals (all repos)</h2>
-            <ul>
-              <li><strong>Hours</strong>: {total['hours']}</li>
-              <li><strong>Commits</strong>: {total['commits']}</li>
-              <li><strong>Contributors</strong>: {len(data)-1}</li>
-            </ul>
+        # Contributors table (all repos)
+        labels = [k for k in data if k != 'total']
+        rows   = "\n".join(
+            f"<tr><td>{html.escape(l)}</td><td>{data[l]['hours']}</td>"
+            f"<td>{data[l]['commits']}</td></tr>" for l in labels)
 
-            <h2>Hours per contributor</h2>
-            <canvas id='hoursChart'></canvas>
-            <h2>Commits per contributor</h2>
-            <canvas id='commitsChart'></canvas>
+        # Per‑repo sections (any json not tagged as aggregated)
+        sections = []
+        for path in glob.glob('tmp/*.json'):
+            if 'aggregated' in path:          # skip master file
+                continue
+            repo_key = pathlib.Path(path).stem.replace('_','/')  # new v6 scheme
+            repo     = html.escape(repo_key)
+            rdata    = json.load(open(path))
+            rlabels  = [k for k in rdata if k != 'total']
+            rrows    = "\n".join(
+                f"<tr><td>{html.escape(l)}</td><td>{rdata[l]['hours']}</td>"
+                f"<td>{rdata[l]['commits']}</td></tr>" for l in rlabels)
 
-            <h2>Detail table (all repos)</h2>
-            <table class='sortable'>
-              <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
-              <tbody>{rows}</tbody>
-            </table>
+            sections.append(
+                f"<h2>{repo}</h2><table class='sortable'>"
+                f"<thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th>"
+                f"</tr></thead><tbody>{rrows}</tbody></table>"
+            )
 
-            {''.join(sections)}
+        html_page = f'''
+        <!doctype html><html lang="en"><head>
+          <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+          <title>Collaborator KPIs</title>
+          <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simpledotcss/simple.min.css">
+          <script src="https://cdn.jsdelivr.net/npm/sortable-tablesort/sortable.min.js" defer></script>
+          <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+          <style>canvas{{max-height:400px}}</style>
+        </head><body><main>
+          <h1>Collaborator KPIs</h1>
+          <p><em>Last updated {datetime.datetime.utcnow():%Y-%m-%d %H:%M UTC}</em></p>
 
-            <p>Historical JSON snapshots live in <code>/data</code>.</p>
+          <h2>Totals (all repos)</h2>
+          <ul>
+            <li><strong>Hours</strong>: {total['hours']}</li>
+            <li><strong>Commits</strong>: {total['commits']}</li>
+            <li><strong>Contributors</strong>: {len(data)-1}</li>
+          </ul>
 
-            <script>
-              fetch('git-hours-latest.json')
-                .then(r => r.json())
-                .then(d => {{
-                  const labels  = Object.keys(d).filter(k => k !== "total");
-                  const hours   = labels.map(l => d[l].hours);
-                  const commits = labels.map(l => d[l].commits);
-                  new Chart(document.getElementById("hoursChart"), {{
-                    type: "bar",
-                    data: {{ labels, datasets:[{{label:"Hours",data:hours}}] }},
-                    options: {{
-                      responsive:true, maintainAspectRatio:false,
-                      plugins:{{legend:{{display:false}}}},
-                      scales:{{y:{{beginAtZero:true}}}}
-                    }}
-                  }});
-                  new Chart(document.getElementById("commitsChart"), {{
-                    type: "bar",
-                    data: {{ labels, datasets:[{{label:"Commits",data:commits}}] }},
-                    options: {{
-                      responsive:true, maintainAspectRatio:false,
-                      plugins:{{legend:{{display:false}}}},
-                      scales:{{y:{{beginAtZero:true}}}}
-                    }}
-                  }});
+          <h2>Hours per contributor</h2><canvas id="hoursChart"></canvas>
+          <h2>Commits per contributor</h2><canvas id="commitsChart"></canvas>
+
+          <h2>Detail table (all repos)</h2>
+          <table class="sortable">
+            <thead><tr><th>Contributor</th><th>Hours</th><th>Commits</th></tr></thead>
+            <tbody>{rows}</tbody>
+          </table>
+
+          {''.join(sections)}
+
+          <p>Historical JSON snapshots live in <code>/data</code>.</p>
+
+          <script>
+            fetch('git-hours-latest.json')
+              .then(r => r.json())
+              .then(d => {{
+                const labels  = Object.keys(d).filter(k => k !== "total");
+                const hours   = labels.map(l => d[l].hours);
+                const commits = labels.map(l => d[l].commits);
+                new Chart(document.getElementById("hoursChart"), {{
+                  type: "bar",
+                  data: {{ labels, datasets:[{{label:"Hours",data:hours}}] }},
+                  options: {{
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{{legend:{{display:false}}}},
+                    scales:{{y:{{beginAtZero:true}}}}
+                  }}
                 }});
-            </script>
-          </main></body></html>
-          """
-          pathlib.Path('site/index.html').write_text(textwrap.dedent(page))
-          PY
+                new Chart(document.getElementById("commitsChart"), {{
+                  type: "bar",
+                  data: {{ labels, datasets:[{{label:"Commits",data:commits}}] }},
+                  options: {{
+                    responsive:true, maintainAspectRatio:false,
+                    plugins:{{legend:{{display:false}}}},
+                    scales:{{y:{{beginAtZero:true}}}}
+                  }}
+                }});
+              }});
+          </script>
+        </main></body></html>
+        '''
+        pathlib.Path('site/index.html').write_text(textwrap.dedent(html_page))
+        PY
 
-      # Upload the site to the pages artifact
-      - uses: actions/upload-pages-artifact@v3
-        with:
-          path: site
+    - name: Upload Pages artefact
+      uses: actions/upload-pages-artifact@v3
+      with:
+        path: site
 
+# ---------------------------------------------------------------------
+# 3) Publish to GitHub Pages
+# ---------------------------------------------------------------------
   deploy-pages:
     needs: build-site
     runs-on: ubuntu-latest
@@ -162,5 +185,5 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - id: deployment
-        uses: actions/deploy-pages@v4
+    - id: deployment
+      uses: actions/deploy-pages@v4
