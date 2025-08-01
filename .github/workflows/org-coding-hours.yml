@@ -20,7 +20,7 @@ jobs:
     - uses: actions/setup-go@v4
       with: { go-version: '1.24' }
     - name: Run Org Coding Hours Action
-      uses: labview-community-ci-ci/org-coding-hours-action@v3
+      uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v3
       with:
         repos: ni/labview-icon-editor ni/actor-framework ni/open-source
 
