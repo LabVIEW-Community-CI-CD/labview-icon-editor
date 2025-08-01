@@ -19,7 +19,7 @@ jobs:
   report:
     runs-on: ubuntu-latest
     steps:
-    - uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v2
+    - uses: LabVIEW-Community-CI-CD/org-coding-hours-action@v3
       with:
         repos: ${{ github.event.inputs.repos }}
         window_start: ${{ github.event.inputs.window_start }}
