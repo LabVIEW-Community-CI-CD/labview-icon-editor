@@ -4,9 +4,9 @@ This page explains how the repository generates contributor hours and where the 
 
 ## How the workflow works
 
-The **Coding-hours report** workflow runs weekly and can also be triggered manually. It leverages the [Org Coding Hours Action](https://github.com/LabVIEW-Community-CI-CD/org-coding-hours-action) to compute statistics and publish the results. It performs the following steps:
+The **Coding-hours report** workflow runs weekly and can also be triggered manually. It leverages the [Org Coding Hours Action](https://github.com/LabVIEW-Community-CI-CD/org-coding-hours-action) to gather statistics across multiple repositories and publish the results. It performs the following steps:
 
-1. **Collect statistics** – The job checks out all three repositories and runs `git-hours` to calculate commit hours per contributor. The aggregated report is saved as `git-hours.json` and archived as a workflow artifact.
+1. **Collect statistics** – The job checks out all three repositories and runs `git-hours` to calculate commit hours per contributor. The aggregated report is saved as `git-hours-aggregated-<date>.json` and archived as a workflow artifact.
 2. **Build the KPIs site** – Using this aggregated data, a simple HTML dashboard is generated under a `site/` directory. This directory is then uploaded as a Pages artifact. The page includes a section for each repository in addition to organization-wide totals.
 3. **Deploy** – The site artifact is deployed to GitHub Pages so everyone can view the latest dashboard covering all repositories.
 
