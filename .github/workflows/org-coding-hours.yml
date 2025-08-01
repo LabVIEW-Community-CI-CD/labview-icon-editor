@@ -35,10 +35,15 @@ jobs:
     # This step finds them and stages them under collected‑reports/
     - name: Collect JSON reports
       run: |
+        set -e
         mkdir collected-reports
         # find *any* JSON produced by git‑hours (covers future name tweaks)
-        find "$GITHUB_WORKSPACE" -type f -path '*/reports/*.json' -exec \
-             cp {} collected-reports/ \;
+        mapfile -t reports < <(find "$GITHUB_WORKSPACE" -type f -path '*/reports/*.json')
+        if [ ${#reports[@]} -eq 0 ]; then
+          echo "No JSON reports found" >&2
+          exit 1
+        fi
+        cp "${reports[@]}" collected-reports/
 
     - name: Upload reports as artifact
       uses: actions/upload-artifact@v4
