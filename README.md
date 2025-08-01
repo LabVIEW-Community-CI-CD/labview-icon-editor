@@ -53,3 +53,30 @@ This workflow triggers manually through the GitHub UI. When run, it computes cod
 
 * The action installs a specific version of `git‑hours` (v0.1.2) using Go 1.24 and executes a Python helper script. If you want to update the version, modify the clone command in `action.yml` accordingly.
 * Both branches (`metrics_branch` and `pages_branch`) are created automatically if they do not exist. Subsequent runs will update the existing branches without force‑pushing unless a non‑fast‑forward update is required.
+
+## Contributor Coding Hours
+
+<!-- HOURS_START -->
+
+| Contributor | Hours |
+|-------------|-------|
+| sergio.velderrain@ni.com | 232.0 |
+| sergio.velderrain@emerson.com | 124.0 |
+| crossrulz@outlook.com | 77.0 |
+| 156447188+svelderrainruiz@users.noreply.github.com | 73.0 |
+| juan@hasbun-wood-engineering.de | 17.0 |
+| greg.richardson@ni.com | 16.0 |
+| github-actions[bot]@users.noreply.github.com | 11.0 |
+| 60667522+crossrulz@users.noreply.github.com | 9.0 |
+| 71788381+gregr-ni@users.noreply.github.com | 6.0 |
+| 32969609+eyesonvis@users.noreply.github.com | 4.0 |
+| jim.kring@jki.net | 2.0 |
+| 131851960+yash-ni@users.noreply.github.com | 0.0 |
+| 24767209+JayKayAce@users.noreply.github.com | 0.0 |
+| 66672184+ThatsTheEnd@users.noreply.github.com | 0.0 |
+| Elijah.Kerry@gmail.com | 0.0 |
+| Elijah.Kerry@ni.com | 0.0 |
+| Timothy.Robinson2@ngc.com | 0.0 |
+| bot@github.com | 0.0 |
+
+<!-- HOURS_END -->
