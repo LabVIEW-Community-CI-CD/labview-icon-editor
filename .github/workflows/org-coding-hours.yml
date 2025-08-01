@@ -3,9 +3,6 @@ name: Org Coding Hours
 on:
   workflow_dispatch:
     inputs:
-      repos:
-        description: 'Space-separated list of owner/repo names'
-        required: true
       window_start:
         description: 'Optional start date YYYY-MM-DD'
         required: false
@@ -22,22 +19,10 @@ jobs:
     - uses: actions/checkout@v4
     - uses: actions/setup-go@v4
       with: { go-version: '1.24' }
-    - name: Install git-hours v0.1.2
-      run: |
-        git clone --depth 1 --branch v0.1.2 https://github.com/trinhminhtriet/git-hours.git git-hours-src
-        sed -i 's/go 1.24.1/go 1.24/' git-hours-src/go.mod
-        (cd git-hours-src && go install .)
-    - name: Run git-hours across repos
-      env:
-        REPOS: ${{ github.event.inputs.repos }}
-        WINDOW_START: ${{ github.event.inputs.window_start }}
-      run: |
-        python .github/scripts/org_coding_hours.py
-    - uses: actions/upload-artifact@v4
+    - name: Run Org Coding Hours Action
+      uses: labview-community-ci-ci/org-coding-hours-action@v3
       with:
-        name: git-hours-aggregated-json
-        path: reports/git-hours-*.json
-        retention-days: 30
+        repos: ni/labview-icon-editor ni/actor-framework ni/open-source
 
   build-site:
     needs: report
