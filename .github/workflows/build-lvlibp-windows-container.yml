@@ -8,6 +8,11 @@ on:
         required: false
         default: '2026q1'
         type: string
+      simulate_docker_stopped:
+        description: 'Deterministic repro: stop the Docker service before the build to emulate runner-images #13729'
+        required: false
+        default: false
+        type: boolean
   workflow_call:
     inputs:
       labview_version:
@@ -135,6 +140,25 @@ jobs:
               ('- Resolved: `{0}.{1}.{2}.{3}`' -f $major, $minor, $patch, $build)
             ) -join [Environment]::NewLine | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Append -Encoding utf8
           }
+
+      - name: Simulate Docker stopped (deterministic repro)
+        if: ${{ inputs.simulate_docker_stopped == true }}
+        shell: powershell
+        run: |
+          Write-Host 'Repro: stopping Docker services to emulate runner-images #13729 (Docker service Stopped on boot)...'
+          Get-Service -Name '*docker*' -ErrorAction SilentlyContinue | ForEach-Object {
+            Write-Host ("Stopping '{0}' (status {1})" -f $_.Name, $_.Status)
+            try { Stop-Service -Name $_.Name -Force -ErrorAction Stop } catch { Write-Warning $_.Exception.Message }
+          }
+          & docker info *> $null
+          Write-Host ("docker info exit (expected non-zero while stopped): {0}" -f $LASTEXITCODE)
+          exit 0
+
+      - name: Ensure Docker engine is ready (Windows)
+        shell: powershell
+        run: |
+          .\Tooling\Wait-ForDockerWindows.ps1 -TimeoutSeconds 120 -PollIntervalSeconds 3
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Build PPL with Windows Docker
         uses: ni/open-source/build-spec-docker-windows@actions
