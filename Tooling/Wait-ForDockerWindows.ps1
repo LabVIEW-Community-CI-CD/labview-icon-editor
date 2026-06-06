@@ -44,9 +44,26 @@ $ErrorActionPreference = 'Stop'
 # Helpers
 # ---------------------------------------------------------------------------
 
+function Invoke-DockerSafely {
+    # Runs the docker CLI without letting native stderr (e.g. the npipe error
+    # emitted while the daemon is down) raise a terminating NativeCommandError
+    # under $ErrorActionPreference = 'Stop'. Returns the exit code and output.
+    param([Parameter(Mandatory = $true)][string[]]$DockerArgs)
+
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try {
+        $output = & docker @DockerArgs 2>&1 | Out-String
+        return [pscustomobject]@{ ExitCode = $LASTEXITCODE; Output = $output }
+    } catch {
+        return [pscustomobject]@{ ExitCode = 1; Output = $_.Exception.Message }
+    } finally {
+        $ErrorActionPreference = $previous
+    }
+}
+
 function Test-DockerReady {
-    & docker info *> $null
-    return ($LASTEXITCODE -eq 0)
+    return ((Invoke-DockerSafely -DockerArgs @('info')).ExitCode -eq 0)
 }
 
 function Start-DockerService {
@@ -76,7 +93,7 @@ function Write-DockerDiagnostic {
         Out-String | Write-Host
 
     Write-Host '--- docker version ---'
-    & docker version
+    Write-Host (Invoke-DockerSafely -DockerArgs @('version')).Output
 
     try {
         Write-Host '--- Recent System event log (docker / hyper-v / hns / vmcompute) ---'
