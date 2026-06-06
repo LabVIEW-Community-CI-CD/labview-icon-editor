@@ -145,13 +145,16 @@ jobs:
         if: ${{ inputs.simulate_docker_stopped == true }}
         shell: powershell
         run: |
+          $ErrorActionPreference = 'Continue'
           Write-Host 'Repro: stopping Docker services to emulate runner-images #13729 (Docker service Stopped on boot)...'
           Get-Service -Name '*docker*' -ErrorAction SilentlyContinue | ForEach-Object {
             Write-Host ("Stopping '{0}' (status {1})" -f $_.Name, $_.Status)
             try { Stop-Service -Name $_.Name -Force -ErrorAction Stop } catch { Write-Warning $_.Exception.Message }
           }
-          & docker info *> $null
-          Write-Host ("docker info exit (expected non-zero while stopped): {0}" -f $LASTEXITCODE)
+          # Capture (do not fail on) the expected npipe error to document the repro.
+          try { $probe = (& docker info 2>&1 | Out-String) } catch { $probe = $_.Exception.Message }
+          Write-Host ("docker info while stopped (expected npipe failure):`n{0}" -f $probe)
+          Write-Host 'Docker stopped; the next step should restart it and recover.'
           exit 0
 
       - name: Ensure Docker engine is ready (Windows)
